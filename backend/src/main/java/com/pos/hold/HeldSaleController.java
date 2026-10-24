@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -75,11 +74,5 @@ public class HeldSaleController {
     @PostMapping("/{id}/void")
     public HoldDto voidHold(@PathVariable Long id, @RequestBody VoidRequest req, @AuthenticationPrincipal AuthUser user) {
         return service.voidHold(id, req.reason(), user);
-    }
-
-    /** Expires old holds and releases abandoned locks. */
-    @Scheduled(fixedDelayString = "PT5M", initialDelayString = "PT1M")
-    public void housekeeping() {
-        service.housekeeping();
     }
 }

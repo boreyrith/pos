@@ -1,0 +1,19 @@
+# HTTPS in front of the web app. SITE_ADDRESS is the address people type:
+#   pos.example.com      -> a real certificate from Let's Encrypt (set TLS to your email)
+#   10.0.129.216 / shop-pc.local -> a certificate from Caddy's own authority (TLS=internal);
+#                           install that authority on each till once (see DEPLOY.md) to remove the warning.
+{$SITE_ADDRESS} {
+	tls {$TLS}
+	encode zstd gzip
+	# Product pictures are up to 2 MB, the logo 512 KB.
+	request_body {
+		max_size 5MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	reverse_proxy frontend:3000
+}

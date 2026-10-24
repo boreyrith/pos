@@ -1,0 +1,18 @@
+# Production profile (SPRING_PROFILES_ACTIVE=prod): no demo data (the dev seeder only runs under "dev"),
+# no public API documentation, quieter logs. Secrets and addresses come from environment variables;
+# see deploy/DEPLOY.md.
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:false}
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:false}
+
+app:
+  jwt:
+    refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
+
+logging:
+  level:
+    root: WARN
+    com.pos: INFO
+    org.springframework.boot.web: INFO

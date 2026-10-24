@@ -106,14 +106,13 @@ Business settings (company details, VAT, time zone, branches, currencies, KHQR a
 
 Deployment settings are environment variables; see [`.env.example`](.env.example) and [`application.yml`](backend/src/main/resources/application.yml). Settings are cached in memory, so run one backend instance (or restart the others after a change).
 
-Before going to production:
+For a production server, use the ready-made setup in [`deploy/`](deploy/DEPLOY.md): HTTPS through Caddy, private database, random secrets, the first admin account and daily backups. What it takes care of, should you deploy another way:
 
-1. Set `JWT_SECRET` (`openssl rand -base64 48`), `SECRETS_KEY` (`openssl rand -base64 32`, encrypts the Bakong token saved in the app; keep it, or saved secrets must be entered again) and `REFRESH_COOKIE_SECURE=true` (needs HTTPS).
-2. Run with `SPRING_PROFILES_ACTIVE=prod` (any profile other than `dev`) so no demo data is created, then create the first admin account (see below).
+1. Set `JWT_SECRET` (`openssl rand -base64 48`), `SECRETS_KEY` (`openssl rand -base64 32`, encrypts the Bakong token saved in the app; keep it, or saved secrets must be entered again) and `REFRESH_COOKIE_SECURE=true` (needs HTTPS). Outside the `dev` profile the server refuses to start without `JWT_SECRET`.
+2. Run with `SPRING_PROFILES_ACTIVE=prod` so no demo data is created. The `prod` profile also turns off Swagger and quietens logging.
 3. Use real database credentials (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`).
-4. Turn off Swagger if you don't want it public: `SPRINGDOC_API_DOCS_ENABLED=false`, `SPRINGDOC_SWAGGER_UI_ENABLED=false`.
 
-There is no sign-up page. Outside the `dev` profile, create the first admin by inserting a row into `users` with a BCrypt hash, then manage staff from the Staff page.
+There is no sign-up page. Outside the `dev` profile, the first admin is created on the first start from `ADMIN_USERNAME` and `ADMIN_PASSWORD` (8+ characters) when there are no users yet; they must choose a new password at first sign-in. Afterwards these variables are ignored, and staff are managed from the Staff page.
 
 ### KHQR
 

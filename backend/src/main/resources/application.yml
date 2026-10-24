@@ -3,6 +3,9 @@ spring:
     name: pos-api
   profiles:
     default: dev
+  # Sign-in is the app's own (JWT); without this Spring adds a fallback user and logs its password.
+  autoconfigure:
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3307/pos_next?serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false}
     username: ${DB_USERNAME:pos}
