@@ -1,0 +1,876 @@
+<!doctype html>
+<!-- Generated from docs/user-manual.html by scripts/build-manual.mjs. Edit the source, not this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>POS User Manual</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Khmer:wght@400;600&display=swap">
+<style>
+/* Layout: a manual. Sticky contents rail on the left, one reading column (~68ch) on the right; a role filter hides what a reader doesn't need. Colors follow the POS app itself. */
+:root {
+  --bg: #f4f4f2;
+  --paper: #ffffff;
+  --paper-2: #f9f9f8;
+  --line: #e4e3df;
+  --fg: #1c1b19;
+  --muted: #62615b;
+  --accent: #1d5fb3;
+  --accent-soft: #e8f0fb;
+  --warn: #9a4a07;
+  --warn-soft: #fef3e6;
+  --ok: #067647;
+  --ok-soft: #e6f4ec;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-km: "Noto Sans Khmer", "Khmer UI", "Khmer Sangam MN", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121211; --paper: #1a1a19; --paper-2: #222220; --line: #33332f; --fg: #f0efec; --muted: #a8a79f;
+    --accent: #5b9bea; --accent-soft: #1b2a3f; --warn: #f5a35c; --warn-soft: #3a2611; --ok: #47cd89; --ok-soft: #16302a;
+    --danger: #f97066; --danger-soft: #3b1c1a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121211; --paper: #1a1a19; --paper-2: #222220; --line: #33332f; --fg: #f0efec; --muted: #a8a79f;
+  --accent: #5b9bea; --accent-soft: #1b2a3f; --warn: #f5a35c; --warn-soft: #3a2611; --ok: #47cd89; --ok-soft: #16302a;
+  --danger: #f97066; --danger-soft: #3b1c1a; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.shell { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 40px; padding-block: 32px 80px; }
+@media (max-width: 900px) { .shell { grid-template-columns: minmax(0, 1fr); gap: 16px; padding-block: 20px 60px; } }
+
+/* Contents rail */
+.rail { position: sticky; top: calc(16px + env(safe-area-inset-top, 0px)); align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; font-size: 14px; }
+@media (max-width: 900px) { .rail { position: static; max-height: none; } }
+.rail details { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.rail summary { font-family: var(--font-display); font-weight: 600; cursor: pointer; }
+@media (min-width: 901px) { .rail details { border: 0; background: transparent; padding: 0; } .rail summary { pointer-events: none; list-style: none; margin-bottom: 8px; } .rail summary::-webkit-details-marker { display: none; } }
+.rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.rail a { display: block; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 6px; }
+.rail a:hover { background: var(--paper); color: var(--fg); }
+.rail a.current { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.rail .num { font-family: var(--font-mono); font-size: 11px; color: var(--muted); display: inline-block; width: 22px; }
+
+/* Reading column */
+main { min-width: 0; max-width: 72ch; }
+.cover { padding-block: 8px 28px; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--font-display); font-size: clamp(32px, 5vw, 46px); line-height: 1.08; letter-spacing: -.01em; margin: 6px 0 12px; text-wrap: balance; }
+.lede { font-size: 18px; color: var(--muted); margin: 0 0 18px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--muted); }
+.meta b { color: var(--fg); font-weight: 700; }
+
+section.chapter { padding-block: 8px 24px; scroll-margin-top: 16px; }
+h2 { font-family: var(--font-display); font-size: 28px; line-height: 1.2; margin: 28px 0 6px; text-wrap: balance; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+h2 .chap { font-family: var(--font-mono); font-size: 14px; color: var(--accent); font-weight: 500; }
+h3 { font-family: var(--font-display); font-size: 20px; margin: 26px 0 6px; text-wrap: balance; scroll-margin-top: 16px; }
+h4 { font-size: 16px; margin: 18px 0 4px; }
+p { margin: 0 0 12px; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+ul, ol { margin: 0 0 14px; padding-left: 22px; }
+li { margin-bottom: 4px; }
+li > ul, li > ol { margin-top: 4px; margin-bottom: 4px; }
+ol.steps { counter-reset: step; list-style: none; padding-left: 0; }
+ol.steps > li { counter-increment: step; position: relative; padding-left: 36px; margin-bottom: 8px; }
+ol.steps > li::before { content: counter(step); position: absolute; left: 0; top: 1px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font: 600 12px/24px var(--font-mono); text-align: center; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+
+/* Who a chapter is for */
+.for { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
+.role { font: 500 11px/1 var(--font-mono); letter-spacing: .04em; text-transform: uppercase; padding: 5px 8px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); color: var(--muted); }
+
+/* Names of things on screen */
+.ui { font-family: var(--font-mono); font-size: .86em; background: var(--paper); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; white-space: nowrap; }
+kbd { font-family: var(--font-mono); font-size: .84em; background: var(--paper); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; }
+.path { font-family: var(--font-mono); font-size: .86em; color: var(--accent); }
+.km { font-family: var(--font-km); line-height: 1.9; }
+
+/* Notes */
+.note { border-radius: 10px; padding: 12px 14px; margin: 14px 0; background: var(--accent-soft); font-size: 15px; }
+.note > b:first-child { display: block; font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px; color: var(--accent); }
+.note.rule { background: var(--paper); border: 1px solid var(--line); }
+.note.rule > b:first-child { color: var(--fg); }
+.note.warn { background: var(--warn-soft); }
+.note.warn > b:first-child { color: var(--warn); }
+.note p:last-child, .note ul:last-child { margin-bottom: 0; }
+
+/* Tables */
+.table { overflow-x: auto; margin: 12px 0 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--paper-2); }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.matrix td { text-align: center; }
+.matrix td:first-child, .matrix th:first-child { text-align: left; }
+.yes { color: var(--ok); font-weight: 700; }
+.no { color: var(--line); }
+
+/* Status chips, as they appear in the app */
+.chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.chip.ok { background: var(--ok-soft); color: var(--ok); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.danger { background: var(--danger-soft); color: var(--danger); }
+.chip.neutral { background: var(--paper-2); color: var(--muted); border: 1px solid var(--line); }
+.chip.info { background: var(--accent-soft); color: var(--accent); }
+
+/* Screen sketch: the sell screen */
+.sketch { display: grid; grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.8fr); gap: 6px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 8px; font-size: 12px; margin: 14px 0 6px; }
+.sketch > div { border-radius: 8px; background: var(--paper-2); border: 1px dashed var(--line); padding: 8px; min-height: 56px; }
+.sketch .nav { grid-row: span 3; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.sketch .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 4px; }
+.sketch .tiles span { aspect-ratio: 3 / 4; background: var(--paper); border: 1px solid var(--line); border-radius: 4px; }
+.sketch .cart { grid-row: span 2; }
+.sketch .tag { font-family: var(--font-mono); font-size: 10px; color: var(--accent); display: block; margin-bottom: 4px; }
+.sketch small { color: var(--muted); }
+@media (max-width: 560px) { .sketch { grid-template-columns: minmax(0, 1fr); } .sketch .nav { grid-row: auto; flex-direction: row; } .sketch .cart { grid-row: auto; } }
+.caption { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+
+/* Role filter */
+.filter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 18px 0 0; }
+.filter span { font-size: 13px; color: var(--muted); margin-right: 4px; }
+.filter button { font: 600 13px var(--font-body); border: 1px solid var(--line); background: var(--paper); color: var(--fg); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.filter button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.filtered-note { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+pre.mermaid { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; font-size: 13px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0 16px; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.card h4 { margin: 0 0 4px; font-family: var(--font-display); font-size: 16px; }
+.card p { font-size: 14px; color: var(--muted); margin: 0; }
+footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+</style>
+<style>body { margin: 0; } [hidden] { display: none !important; } img { max-width: 100%; }</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Contents">
+    <details id="toc" open>
+      <summary>Contents</summary>
+      <ol id="toc-list">
+        <li><a href="#start"><span class="num">1</span>Getting started</a></li>
+        <li><a href="#sell"><span class="num">2</span>Selling at the till</a></li>
+        <li><a href="#pay"><span class="num">3</span>Taking payment</a></li>
+        <li><a href="#held"><span class="num">4</span>Held sales</a></li>
+        <li><a href="#customers"><span class="num">5</span>Customers</a></li>
+        <li><a href="#after"><span class="num">6</span>Invoices, returns, refunds</a></li>
+        <li><a href="#catalog"><span class="num">7</span>Catalog</a></li>
+        <li><a href="#labels"><span class="num">8</span>Printing labels</a></li>
+        <li><a href="#inventory"><span class="num">9</span>Inventory</a></li>
+        <li><a href="#purchasing"><span class="num">10</span>Purchasing</a></li>
+        <li><a href="#reports"><span class="num">11</span>Dashboard and reports</a></li>
+        <li><a href="#users"><span class="num">12</span>Users, roles, audit log</a></li>
+        <li><a href="#settings"><span class="num">13</span>Settings</a></li>
+        <li><a href="#rules"><span class="num">14</span>Rules at a glance</a></li>
+        <li><a href="#trouble"><span class="num">15</span>Troubleshooting</a></li>
+        <li><a href="#glossary"><span class="num">16</span>Glossary · ពាក្យគន្លឹះ</a></li>
+      </ol>
+    </details>
+  </nav>
+
+  <main>
+    <header class="cover">
+      <div class="eyebrow">User manual · English</div>
+      <h1>POS User Manual</h1>
+      <p class="lede">How to sell, take payment, look after stock, buy from vendors, read the reports and run the system. Written for everyone who uses the till and the back office.</p>
+      <div class="meta">
+        <span><b>Covers</b> sell screen, catalog, inventory, purchasing, reports, settings</span>
+        <span><b>Languages</b> English and ខ្មែរ</span>
+        <span><b>Currencies</b> USD (base) and Khmer riel</span>
+      </div>
+      <div class="filter" role="group" aria-label="Show chapters for">
+        <span>Show chapters for</span>
+        <button type="button" data-role="all" aria-pressed="true">Everyone</button>
+        <button type="button" data-role="cashier" aria-pressed="false">Cashier</button>
+        <button type="button" data-role="inventory" aria-pressed="false">Inventory staff</button>
+        <button type="button" data-role="manager" aria-pressed="false">Manager</button>
+        <button type="button" data-role="accountant" aria-pressed="false">Accountant</button>
+        <button type="button" data-role="admin" aria-pressed="false">Administrator</button>
+      </div>
+      <p class="filtered-note" id="filtered-note" hidden>Showing only the chapters for this role. Choose <b>Everyone</b> to see the whole manual.</p>
+    </header>
+
+    <!-- 1 -->
+    <section class="chapter" id="start" data-roles="cashier inventory manager accountant admin">
+      <h2><span class="chap">01</span>Getting started</h2>
+      <div class="for"><span class="role">Everyone</span></div>
+
+      <h3 id="signin">Signing in</h3>
+      <ol class="steps">
+        <li>Open the POS address your manager gave you (for example <span class="path">http://shop-pc.local:3000</span>) in Chrome, Edge or Safari, on a computer, tablet or phone.</li>
+        <li>Under the <span class="ui">Sign in</span> button, choose <span class="ui">English</span> or <span class="ui km">ខ្មែរ</span> if you want to change the language.</li>
+        <li>Enter your <span class="ui">Username</span> and <span class="ui">Password</span>, then press <span class="ui">Sign in</span>.</li>
+      </ol>
+      <p>You land on the first page your role can use: the <span class="ui">Sell</span> screen for cashiers, the dashboard or catalog for others.</p>
+      <div class="note rule"><b>Good to know</b>
+        <ul>
+          <li><b>First sign-in:</b> if an administrator created your account or reset your password, you must choose your own password (at least 8 characters) before you can continue. Type the password you were given as the current password.</li>
+          <li><b>Wrong passwords:</b> after 5 wrong passwords in a row the account locks for 15 minutes. An administrator can unlock it sooner.</li>
+          <li><b>Staying signed in:</b> you stay signed in on that device for up to 7 days. Closing the browser does not sign you out, so always press <span class="ui">Sign out</span> on a shared computer.</li>
+        </ul>
+      </div>
+
+      <h3 id="language">Changing the language</h3>
+      <p>Everything on screen, including messages, reports and printed receipts, is available in English and Khmer. English is the default.</p>
+      <ul>
+        <li>Press the language button in the side bar (it shows the other language's name), or open <span class="ui">My account</span> (your initials in the side bar) and use the language switch.</li>
+        <li>The change is instant and is saved to your account, so the same language follows you to any till or phone.</li>
+        <li>Names you or your colleagues typed (products, customers, vendors, notes) stay as they were entered. Products also carry a Khmer name, shown under the English one.</li>
+      </ul>
+
+      <h3 id="layout">Finding your way around</h3>
+      <p>The side bar (top bar on a phone) shows only the pages your role can open:</p>
+      <div class="table"><table>
+        <thead><tr><th>Menu</th><th>What it is for</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui">Sell</span></td><td>The till: build a sale, take cash or KHQR, print the receipt, hold sales.</td></tr>
+          <tr><td><span class="ui">Catalog</span></td><td>Products, items, services and packages, with prices, stock and pictures. Also units, categories and label printing.</td></tr>
+          <tr><td><span class="ui">Inventory</span></td><td>Transfers between storages and branches, stock adjustments and counts, and the stock history.</td></tr>
+          <tr><td><span class="ui">Purchasing</span></td><td>Vendors, purchase orders, deliveries, vendor invoices and payments.</td></tr>
+          <tr><td><span class="ui">Sales</span></td><td>Every invoice, returns and refunds, and customers.</td></tr>
+          <tr><td><span class="ui">Dashboard</span></td><td>Sales, profit, payments and alerts at a glance.</td></tr>
+          <tr><td><span class="ui">Reports</span></td><td>Detailed sales, inventory, purchasing and tax reports with CSV export.</td></tr>
+          <tr><td><span class="ui">Settings</span></td><td>Company details, branches and storages, taxes, currencies, KHQR, system information.</td></tr>
+          <tr><td><span class="ui">Users</span></td><td>Staff accounts, roles and permissions, and the audit log.</td></tr>
+        </tbody>
+      </table></div>
+      <p>At the bottom of the side bar: the branch you are working for, the language button, <span class="ui">My account</span>, and <span class="ui">Sign out</span>.</p>
+
+      <h3 id="branches">Branches and storages</h3>
+      <p>The business can have several <b>branches</b> (shops), for example <i>Main Shop</i> and <i>Siem Reap</i>. Each branch has one or more <b>storages</b>: places where stock is kept, such as <i>Showroom</i>, <i>Back Store</i> or <i>Warehouse</i>. One storage per branch is the <b>selling storage</b>: the till sells from it.</p>
+      <ul>
+        <li>Most staff work for their own branch and see only its stock and sales.</li>
+        <li>People with the <i>All branches</i> permission click the branch code in the side bar to switch branch. Sales, stock and the catalog then act for the branch they pick.</li>
+      </ul>
+    </section>
+
+    <!-- 2 -->
+    <section class="chapter" id="sell" data-roles="cashier manager">
+      <h2><span class="chap">02</span>Selling at the till</h2>
+      <div class="for"><span class="role">Cashier</span><span class="role">Manager</span></div>
+
+      <div class="sketch" aria-hidden="true">
+        <div class="nav"><span class="tag">Menu</span><small>Sell</small><small>…</small></div>
+        <div><span class="tag">1 · Search and filters</span><small>Search name, SKU or scan · type · category</small></div>
+        <div class="cart"><span class="tag">3 · Carts and sale</span><small>Cart 1 · Cart 2 · Cart 3 · Held<br>Customer · lines · note · discount · total<br>Cash · KHQR</small></div>
+        <div class="tiles"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <div><span class="tag">2 · Product tiles</span><small>Tap to add. Badge shows stock: “3 left”, “Out”.</small></div>
+      </div>
+      <p class="caption">The sell screen: what you can sell on the left, the sale you are building on the right.</p>
+
+      <h3 id="add-items">Adding items to the sale</h3>
+      <p>There are four ways to add something:</p>
+      <ul>
+        <li><b>Tap a tile.</b> Each tile shows the picture, SKU, English and Khmer name, price and a stock badge. Tapping again adds one more.</li>
+        <li><b>Scan a barcode</b> with a USB or Bluetooth scanner. The scanner types the code into the search box and presses Enter, and the item is added.</li>
+        <li><b>Search.</b> Press <kbd>/</kbd> to jump to the search box, type part of a name or SKU and press <kbd>Enter</kbd>. If exactly one thing matches, it is added.</li>
+        <li><b>Scan with the camera</b> (phone or tablet): press the scan icon at the right of the search box and hold the barcode or QR code inside the square, 15–25 cm away. Scanning continues until you close it, so you can scan several items.</li>
+      </ul>
+      <p>Narrow the tiles with the type buttons (<span class="ui">All</span>, <span class="ui">Products</span>, <span class="ui">Services</span>, <span class="ui">Items</span>, <span class="ui">Packages</span>) and the category chips.</p>
+
+      <div class="note rule"><b>Stock limits</b>
+        <p>You cannot sell more than the selling storage holds. Tiles show <span class="chip warn">3 left</span> when stock is low and <span class="chip danger">Out</span> when there is none (the tile is greyed out). For a package, the badge shows how many can be made from the stock of what is inside. Units sitting in your other carts count as taken.</p>
+      </div>
+
+      <h3 id="cart">Working with the cart</h3>
+      <ul>
+        <li><b>Quantity:</b> use <span class="ui">+</span> and <span class="ui">−</span> on each line. At 1, the minus button becomes a bin and removes the line.</li>
+        <li><b>Services</b> show extra fields. <span class="ui">Done by</span> records who did the work (it defaults to you). Hourly services also ask for <span class="ui">Hours</span>, which must be filled before you can charge.</li>
+        <li><b>Customer:</b> leave it empty for the <i>Walk-in Customer</i>, or search by name, phone or code. If they are new and your role allows it, choose <span class="ui">New customer</span> to add them on the spot.</li>
+        <li><b>Note:</b> anything the order should carry, such as “gift, please wrap” or “pick up at 5pm”.</li>
+        <li><span class="ui">Clear</span> empties the cart after asking you to confirm.</li>
+      </ul>
+
+      <h4>Three carts at once</h4>
+      <p>The tabs <span class="ui">Cart 1</span>, <span class="ui">Cart 2</span> and <span class="ui">Cart 3</span> let you keep up to three sales open, for example while one customer fetches another size. Switch with a click or <kbd>Alt</kbd>+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd>. A cart with items shows a dot. Carts stay put if you move to another page or reload, on that browser tab. To park a sale for longer, or so another till can finish it, use <a href="#held">Hold</a>.</p>
+
+      <h3 id="discounts">Discounts</h3>
+      <h4>Order discount</h4>
+      <p>Below the lines, choose <span class="ui">%</span> or <span class="ui">$</span> and enter the value. It applies to the whole sale after any item discounts. A percentage cannot exceed 100.</p>
+      <h4>Item discount</h4>
+      <p>Press <span class="ui">Discount</span> under a line to take a % or an amount off that line only. This needs the <i>Discount items</i> permission, and each role has a maximum: Managers up to 20%, Cashiers none, Administrators no limit. The dialog shows what the line becomes and refuses more than your role allows.</p>
+      <div class="note"><b>How the total is worked out</b>
+        <p>Item discounts come off first, then the order discount (on what is left), then VAT is added or worked out of the price, depending on the store's tax mode. The total on screen is the total the customer pays.</p>
+      </div>
+
+      <h3 id="price">Changing a price</h3>
+      <p>People with <i>Override prices</i> can tap the price under a line to change it, for example for a damaged item or a price match.</p>
+      <ol class="steps">
+        <li>Tap the price, enter the new price for one unit (or one hour).</li>
+        <li>Pick a quick reason (<i>Damaged or near expiry</i>, <i>Price match</i>, <i>Bulk deal</i>, <i>Loyal customer</i>, <i>Wrong label price</i>) or type your own. A reason is required.</li>
+        <li>Press <span class="ui">Apply price</span>. The line shows the catalog price crossed out and the reason.</li>
+      </ol>
+      <p>Prices below the item's cost need the extra <i>Sell below cost</i> permission. Every price change is written to the order and the audit log.</p>
+    </section>
+
+    <!-- 3 -->
+    <section class="chapter" id="pay" data-roles="cashier manager">
+      <h2><span class="chap">03</span>Taking payment</h2>
+      <div class="for"><span class="role">Cashier</span><span class="role">Manager</span></div>
+
+      <h3 id="cash">Cash, in dollars and riel</h3>
+      <ol class="steps">
+        <li>Press <span class="ui">Cash</span>. The dialog shows the total in USD and in riel at today's rate.</li>
+        <li>Enter what the customer hands over, in one currency or a mix (for example $10 plus 20,000 ៛). <span class="ui">Exact</span> fills in the exact amount; the note buttons ($10, $20, $50…) fill a common note.</li>
+        <li>If more than one currency is accepted, choose <span class="ui">Give change in</span> USD or KHR.</li>
+        <li>The box at the bottom shows <span class="ui">Change</span>, or <span class="ui">Still to pay</span> in orange if the money is short. Press <span class="ui">Complete sale</span>.</li>
+      </ol>
+      <p>The <span class="ui">Sale complete</span> dialog shows the change due in large figures and the receipt. Press <span class="ui">Print receipt</span>, then <span class="ui">New sale</span>.</p>
+      <div class="note rule"><b>Riel rounding</b>
+        <p>Riel amounts are rounded to the nearest 100 ៛, because smaller notes are not in use. A shortfall of less than half a step (under 50 ៛) counts as paid.</p>
+      </div>
+
+      <h3 id="khqr">KHQR (Bakong)</h3>
+      <ol class="steps">
+        <li>Press <span class="ui">KHQR</span>. If the store accepts riel, choose whether the code charges in USD or KHR.</li>
+        <li>Turn the screen to the customer. They scan the code with any Bakong-member banking app (ABA, ACLEDA, Wing and others) and pay.</li>
+        <li>The till checks for the payment every few seconds. When it arrives, the sale completes and the receipt shows.</li>
+      </ol>
+      <ul>
+        <li>The code is valid for a set time (5 minutes by default), with a countdown under the code. If it expires, the sale is cancelled and the items go back to stock. Press <span class="ui">Back to the cart</span> and charge again.</li>
+        <li>If the customer changes their mind, press <span class="ui">Cancel payment</span>.</li>
+        <li>While the store is in <b>test mode</b>, a <span class="ui">Simulate customer payment (test mode)</span> button appears. No money moves; use it only for training.</li>
+      </ul>
+
+      <h3 id="receipt">The receipt</h3>
+      <p>The receipt is sized for 80 mm receipt printers. It shows:</p>
+      <ul>
+        <li>the logo, store details and VAT TIN;</li>
+        <li>the receipt number, which starts with the sale date (for example <span class="path">20261024-00253</span>);</li>
+        <li>each line with its English and Khmer name, any discount, price change and staff member;</li>
+        <li>totals, VAT, the total in riel at the rate of the sale, and cash or KHQR details with change.</li>
+      </ul>
+      <p>It prints in the language of whoever prints it. Reprint any receipt from the invoice under <span class="ui">Sales</span>.</p>
+
+      <div class="note warn"><b>If prices changed</b>
+        <p>If a price changed while the cart was open (for example a manager edited the catalog), the sale is refused with “Prices changed”. The cart reloads today's prices and lists what changed. Tell the customer the new total and charge again.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="chapter" id="held" data-roles="cashier manager">
+      <h2><span class="chap">04</span>Held sales</h2>
+      <div class="for"><span class="role">Cashier</span><span class="role">Manager</span></div>
+      <p>Hold a sale when the customer needs time (fetching another size, going to the ATM) or when another till will finish it. Held sales are saved on the server, so they survive a closed browser and any till in the branch can see them.</p>
+
+      <h3 id="hold">Holding a sale</h3>
+      <ol class="steps">
+        <li>With items in the cart, press <span class="ui">Hold</span>.</li>
+        <li>Give it a name so it is easy to find (it suggests the customer's name), for example “Table 4” or “Lady in red dress”, and an optional note.</li>
+        <li>Press <span class="ui">Hold sale</span>. The cart empties and the sale gets a number such as <span class="path">HOLD-00012</span>.</li>
+      </ol>
+
+      <h3 id="resume">Finding and resuming a held sale</h3>
+      <p>Press <span class="ui">Held</span> at the right of the cart tabs. The number on it is how many sales are waiting in your branch. The list shows each sale's number, name, customer, items, total when held, who held it and how long ago.</p>
+      <ul>
+        <li><span class="ui">Resume</span> loads it into a free cart with today's prices and stock. A notice lists anything that changed since it was held (new prices, items no longer available).</li>
+        <li>While you have it open it is <span class="chip warn">In use</span> and locked to you, so another till cannot finish it at the same time.</li>
+        <li>Paying it completes it. <span class="ui">Hold</span> again saves your changes back. <span class="ui">Put back</span> returns it unchanged.</li>
+        <li><span class="ui">Void</span> removes it, with a reason. You can void your own; managers can void anyone's.</li>
+      </ul>
+      <div class="note rule"><b>Rules</b>
+        <ul>
+          <li>A held sale nobody resumes <b>expires after 24 hours</b>. Expired sales appear under <span class="ui">Recently closed</span>; only managers can <span class="ui">Restore</span> them.</li>
+          <li>If a till leaves a resumed sale open for <b>30 minutes</b>, the lock is released and the sale is back in the list.</li>
+          <li>A manager can <span class="ui">Take over</span> a sale that another till has open.</li>
+          <li>Prices are always checked again when the sale is paid.</li>
+        </ul>
+      </div>
+      <pre class="mermaid">
+flowchart LR
+  A[Cart] -- Hold --> B(Held)
+  B -- Resume --> C(In use, locked to you)
+  C -- Pay --> D[Completed]
+  C -- Hold again / Put back --> B
+  B -- Void --> E[Voided]
+  B -- 24 h untouched --> F[Expired]
+  F -- Manager restores --> C
+      </pre>
+    </section>
+
+    <!-- 5 -->
+    <section class="chapter" id="customers" data-roles="cashier manager admin accountant">
+      <h2><span class="chap">05</span>Customers</h2>
+      <div class="for"><span class="role">Cashier</span><span class="role">Manager</span><span class="role">Accountant (view)</span></div>
+      <p>Open <span class="path">Sales › Customers</span>. Every sale belongs to a customer. The built-in <b>Walk-in Customer</b> (code <span class="path">WALK-IN</span>) is used whenever none is picked and cannot be switched off.</p>
+      <ul>
+        <li><span class="ui">New customer</span>: name, phone, email, address, VAT TIN (for businesses; printed on receipts) and a note. Customers get a code like <span class="path">CUS-00012</span>.</li>
+        <li><b>Phone numbers are unique</b> however they are written: “012 345 678” and “012-345-678” are the same number.</li>
+        <li>A customer's page shows their orders, total spent after refunds, refunds, and first and last visit.</li>
+        <li>Untick <span class="ui">Active</span> to stop a customer being picked for new sales; their history is kept.</li>
+      </ul>
+    </section>
+
+    <!-- 6 -->
+    <section class="chapter" id="after" data-roles="cashier manager accountant admin">
+      <h2><span class="chap">06</span>Invoices, returns and refunds</h2>
+      <div class="for"><span class="role">Cashier (view, cancel)</span><span class="role">Manager</span><span class="role">Accountant (view)</span></div>
+
+      <h3 id="invoices">Finding an invoice</h3>
+      <p>Open <span class="path">Sales › Invoices</span>. Search by order number, customer or phone, and filter by status and dates. Open an invoice to see every line, discount, tax, payment, and any returns.</p>
+      <div class="table"><table>
+        <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip ok">Completed</span></td><td>Paid in full.</td></tr>
+          <tr><td><span class="chip warn">Awaiting payment</span></td><td>A KHQR code is waiting to be paid.</td></tr>
+          <tr><td><span class="chip neutral">Cancelled</span></td><td>Never paid; the stock went back.</td></tr>
+          <tr><td><span class="chip warn">Partly refunded</span></td><td>Some items were returned and refunded.</td></tr>
+          <tr><td><span class="chip danger">Refunded</span></td><td>Everything was returned and refunded.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="return">Returning some items</h3>
+      <p>Needs the <i>Refunds and returns</i> permission (Managers and Administrators).</p>
+      <ol class="steps">
+        <li>Open the invoice and press <span class="ui">Return items</span>.</li>
+        <li>For each line, enter how many units come back. The screen shows what was paid for them, so the refund matches what the customer actually paid after discounts.</li>
+        <li>Add a reason (for example “wrong size”), check the refund amount, and press <span class="ui">Refund</span>.</li>
+      </ol>
+      <p>The returned stock goes back into the storage the sale came from, and the return gets a number such as <span class="path">RET-00007</span>. Give the money back the way it was paid: cash for cash, bank transfer for KHQR.</p>
+
+      <h3 id="refund-all">Refunding the whole order</h3>
+      <p>Press <span class="ui">Refund all</span> (or <span class="ui">Refund the rest</span> after a partial return) and confirm. Everything left is refunded and put back into stock. This cannot be undone.</p>
+
+      <h3 id="exchange">Exchanges</h3>
+      <p>There is no separate exchange screen. Return the item, then sell the replacement as a new sale.</p>
+
+      <h3 id="cancel-order">Cancelling an unpaid order</h3>
+      <p>An order <span class="chip warn">Awaiting payment</span> can be cancelled with <span class="ui">Cancel order</span>. Its items go back to stock. Paid orders are never cancelled; refund them instead.</p>
+      <p>All returns are listed under <span class="path">Sales › Returns &amp; refunds</span>, with totals and the tax refunded.</p>
+    </section>
+
+    <!-- 7 -->
+    <section class="chapter" id="catalog" data-roles="manager admin inventory cashier">
+      <h2><span class="chap">07</span>Catalog</h2>
+      <div class="for"><span class="role">Everyone views</span><span class="role">Manager and Administrator edit</span></div>
+
+      <h3 id="types">Four kinds of entry</h3>
+      <div class="cols">
+        <div class="card"><h4>Products</h4><p>Goods you sell and keep in stock, such as a bodysuit 3-pack or a pack of diapers.</p></div>
+        <div class="card"><h4>Items</h4><p>Parts and materials. Used by services, such as gift-wrap paper and thread. Some can also be sold at the till.</p></div>
+        <div class="card"><h4>Services</h4><p>Work you charge for, such as gift wrapping or name embroidery. Priced per job or per hour.</p></div>
+        <div class="card"><h4>Packages</h4><p>Bundles sold at their own price, such as a newborn gift set. Selling one takes the stock of what is inside.</p></div>
+      </div>
+
+      <h3 id="add-entry">Adding or editing an entry</h3>
+      <p>Choose the tab and press <span class="ui">New product</span> (or service, item, package). Then fill in the fields:</p>
+      <ul>
+        <li><b>Name (English)</b> and <b>Name (Khmer)</b>. Both are required; the Khmer name prints on receipts and labels.</li>
+        <li><b>SKU</b>: leave empty to generate one. <b>Barcode</b>: type it, scan it with a scanner, or use <span class="ui">Scan with camera</span>.</li>
+        <li><b>Price</b> and <b>Cost</b>. Cost is what you pay the supplier; reports use it for profit. The label shows whether the price includes VAT.</li>
+        <li><b>Category</b>, <b>Tax rate</b>, a <b>picture</b> (PNG, JPEG or WebP, shrunk automatically) and a description.</li>
+        <li><b>Base unit</b> (pcs, pack, pair, set, bottle…) and <b>Pack sizes</b>, such as 1 carton = 4 packs, so you can buy and count in cartons.</li>
+        <li><b>Low-stock alert at</b>: the dashboard warns when stock falls to this level.</li>
+        <li><b>Opening stock</b> (new products and items only): it goes into your branch's selling storage.</li>
+        <li><b>Services:</b> pricing per job or per hour, the usual duration, and <b>Parts used per job</b>. Each sale takes those items out of stock.</li>
+        <li><b>Packages:</b> under <span class="ui">Contents</span>, add products, items, services or other packages. The screen compares the package price with buying everything separately.</li>
+        <li><span class="ui">Active</span>: untick it to hide an entry everywhere without deleting its history.</li>
+      </ul>
+
+      <h3 id="stock-change">Changing stock from the catalog</h3>
+      <p>People with <i>Adjust stock</i> can press the stock figure on a product or item, choose the storage and what happened, then save:</p>
+      <ul>
+        <li><b>Receive</b>: goods arrived or were found. The amount is added.</li>
+        <li><b>Remove</b>: damaged, expired, lost, stolen or used in-house. The amount is taken away, with a reason.</li>
+        <li><b>Count</b>: you counted the shelf. The count becomes the stock.</li>
+      </ul>
+      <p>For several items at once, use <a href="#inventory">Inventory › Adjustments</a>.</p>
+
+      <h3 id="cat-units">Units and categories</h3>
+      <p>The <span class="ui">Units</span> and <span class="ui">Categories</span> buttons at the top of the catalog manage the lists of units and categories. A unit in use cannot be deleted. Deleting a category leaves its entries uncategorised.</p>
+      <p>Filters: search by name, SKU or barcode, pick a category, see stock for <i>this branch</i> or a single storage, <span class="ui">Low stock only</span>, and <span class="ui">Include hidden</span>.</p>
+    </section>
+
+    <!-- 8 -->
+    <section class="chapter" id="labels" data-roles="manager admin inventory">
+      <h2><span class="chap">08</span>Printing labels</h2>
+      <div class="for"><span class="role">Manager</span><span class="role">Inventory staff</span></div>
+      <p>Open <span class="path">Catalog › Print labels</span> to print shelf and price labels for anything for sale.</p>
+      <ol class="steps">
+        <li><b>Choose what to label.</b> Search, filter by type or category, and press <span class="ui">Add</span>, or <span class="ui">Add all</span> for everything shown. Tick <span class="ui">One label per unit in stock</span> to print one label for every unit.</li>
+        <li><b>Labels to print.</b> Change the number of copies for each entry.</li>
+        <li><b>Label layout.</b> Pick the size, then a barcode or QR code, and what to show: name, Khmer name, price (optionally with VAT), unit, SKU, description, store name.</li>
+        <li>Press <span class="ui">Print preview</span> to see every page at true size, then <span class="ui">Print</span>.</li>
+      </ol>
+      <div class="table"><table>
+        <thead><tr><th>Size</th><th>Use</th></tr></thead>
+        <tbody>
+          <tr><td>Roll label 50 × 30 mm</td><td>Label printer, one label per page</td></tr>
+          <tr><td>Small roll label 38 × 25 mm</td><td>Small items, hang tags</td></tr>
+          <tr><td>Price tag 60 × 40 mm</td><td>Shelf price tags</td></tr>
+          <tr><td>A4 sheet, 24 labels (70 × 37 mm)</td><td>Office printer, sticker sheets</td></tr>
+          <tr><td>A4 sheet, 40 labels (52.5 × 29.7 mm)</td><td>Office printer, small stickers</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note"><b>Printer settings</b><p>In the browser's print dialog, choose the label printer (or A4 paper), set margins to <i>None</i> and scale to <i>100%</i>.</p></div>
+    </section>
+
+    <!-- 9 -->
+    <section class="chapter" id="inventory" data-roles="inventory manager admin">
+      <h2><span class="chap">09</span>Inventory</h2>
+      <div class="for"><span class="role">Inventory staff</span><span class="role">Manager</span></div>
+      <p>Stock is kept per storage. Every change, whether a sale, return, delivery, transfer or adjustment, is recorded with who did it and when.</p>
+
+      <h3 id="transfers">Transfers</h3>
+      <p>Move stock between storages, in the same branch or to another branch.</p>
+      <ol class="steps">
+        <li><span class="path">Inventory › Transfers</span> › <span class="ui">New transfer</span>.</li>
+        <li>Choose <b>From</b> and <b>To</b> storages, search and add the items, and enter the quantities (in units or packs). The screen shows what is available in the source.</li>
+        <li>Press <span class="ui">Send transfer</span> (or <span class="ui">Move stock</span> within one branch).</li>
+      </ol>
+      <ul>
+        <li><b>Same branch:</b> the stock moves straight away.</li>
+        <li><b>Another branch:</b> the transfer is <span class="chip warn">In transit</span> until someone at the receiving branch presses <span class="ui">Receive</span>. Until then the stock is in neither place.</li>
+        <li>A transfer in transit can be cancelled; the stock goes back to where it came from.</li>
+      </ul>
+
+      <h3 id="adjust">Adjustments</h3>
+      <p><span class="path">Inventory › Adjustments</span> › <span class="ui">New adjustment</span> fixes several items at once. For each line, choose <span class="ui">Increase by</span>, <span class="ui">Decrease by</span> or <span class="ui">Set to</span>, the amount, and a reason:</p>
+      <div class="table"><table>
+        <thead><tr><th>Adds stock</th><th>Removes stock</th><th>Either way</th></tr></thead>
+        <tbody><tr><td>Goods received<br>Found<br>Customer return</td><td>Damaged<br>Expired<br>Lost<br>Theft<br>Internal use</td><td>Correction<br>Other (needs a note)</td></tr></tbody>
+      </table></div>
+
+      <h3 id="count">Stock counts</h3>
+      <ol class="steps">
+        <li>Under <span class="path">Inventory › Adjustments</span>, start a <span class="ui">Count</span> for a storage. You can count just one category or type.</li>
+        <li>The count sheet lists every product and item with the stock the system expects. Type what you counted, in the base unit. Leave a row blank to keep it as it is.</li>
+        <li>Use <span class="ui">Only differences</span> to review, check the value of the differences, then <span class="ui">Apply count</span>.</li>
+      </ol>
+      <p>Selling during a count is fine. The counted number is applied, and any sale made while you counted is recorded separately.</p>
+
+      <h3 id="history">History</h3>
+      <p><span class="path">Inventory › History</span> lists every stock change: when, the entry, what happened (sale, refund, purchase received, transfer in or out, adjustment), the change and the running balance. Filter by branch, storage and kind.</p>
+    </section>
+
+    <!-- 10 -->
+    <section class="chapter" id="purchasing" data-roles="manager inventory accountant admin">
+      <h2><span class="chap">10</span>Purchasing</h2>
+      <div class="for"><span class="role">Manager (orders)</span><span class="role">Inventory staff (receive)</span><span class="role">Accountant (invoices, payments)</span></div>
+      <p>The top of <span class="path">Purchasing</span> shows what is owed to vendors, unpaid and overdue invoices, and orders waiting to be received.</p>
+
+      <h3 id="vendors">Vendors</h3>
+      <p><span class="ui">Add vendor</span>: a short unique code (for example <span class="path">V-BCD</span>), name, contact person, phone, email, VAT TIN, address and <b>payment terms</b> in days (0 = pay on receipt). Inactive vendors cannot receive new orders.</p>
+
+      <h3 id="po">Purchase orders</h3>
+      <ol class="steps">
+        <li><span class="ui">New purchase order</span>: choose the vendor, where to deliver (a storage), the expected date and the vendor's quote number.</li>
+        <li>Add products and items with quantity, unit (for example cartons) and cost per unit. Save it as a draft while you are still deciding.</li>
+        <li>Press <span class="ui">Place order</span> when you send it to the vendor. Only drafts can be edited.</li>
+      </ol>
+      <pre class="mermaid">
+flowchart LR
+  D[Draft] -- Place order --> O[Ordered]
+  O -- part arrives --> P[Partly received]
+  O -- all arrives --> R[Received]
+  P -- rest arrives --> R
+  P -- Close short --> R
+  D -- Cancel --> X[Cancelled]
+  O -- Cancel --> X
+      </pre>
+
+      <h3 id="receive">Receiving a delivery</h3>
+      <ol class="steps">
+        <li>Open the order and press <span class="ui">Receive delivery</span>.</li>
+        <li>Enter what actually arrived for each line (it suggests what is still to come), and the delivery note number. Note any problem, such as “2 boxes damaged, refused”.</li>
+        <li>Optionally tick <span class="ui">Update each item's catalog cost to this purchase price</span>.</li>
+        <li>Press <span class="ui">Receive into stock</span>. The stock goes into the order's storage and the delivery gets a number such as <span class="path">GRN-00006</span>.</li>
+      </ol>
+      <p>If the vendor will not send the rest, press <span class="ui">Close short</span> to stop waiting for it.</p>
+
+      <h3 id="vendor-invoices">Vendor invoices and payments</h3>
+      <ul>
+        <li><span class="ui">Record invoice</span> (on the order, or under <span class="path">Invoices &amp; payments</span>): the vendor's invoice number, invoice date, subtotal, tax charged (input VAT) and due date. The due date defaults to the vendor's payment terms.</li>
+        <li><span class="ui">Pay</span> records a payment: amount, date, method (cash, bank transfer, KHQR, cheque, other) and reference. Pay in full or in parts.</li>
+        <li>Statuses: <span class="chip danger">Unpaid</span>, <span class="chip warn">Partly paid</span>, <span class="chip ok">Paid</span>, <span class="chip neutral">Void</span>. Unpaid invoices past their due date are marked <b>Overdue</b>.</li>
+        <li>An invoice with payments recorded cannot be voided.</li>
+      </ul>
+    </section>
+
+    <!-- 11 -->
+    <section class="chapter" id="reports" data-roles="manager accountant admin">
+      <h2><span class="chap">11</span>Dashboard and reports</h2>
+      <div class="for"><span class="role">Manager</span><span class="role">Accountant</span><span class="role">Administrator</span></div>
+
+      <h3 id="dashboard">Dashboard</h3>
+      <p>Choose <span class="ui">Today</span>, <span class="ui">Last 7 days</span>, <span class="ui">Last 30 days</span> or <span class="ui">Last 90 days</span>, and a branch if you see several. Each figure is compared with the period before.</p>
+      <ul>
+        <li><b>Sales</b> (tax included, after refunds), <b>Net sales</b> (without tax), <b>Gross profit</b> and margin, <b>Orders</b> and the average order, <b>Refunds</b>, and <b>Discounts given</b>.</li>
+        <li><b>Alerts:</b> low stock, transfers waiting to be received, KHQR orders awaiting payment, money owed to vendors (and overdue), and purchase orders to receive. Click an alert to open the list behind it.</li>
+        <li><b>Daily sales</b> chart (switch to a table), <b>Top sellers</b>, <b>Money received</b> by method, the <b>Cash drawer by currency</b> (received, change given, kept), <b>Low on stock</b>, and the top customers.</li>
+      </ul>
+      <div class="note"><b>Counting the drawer</b><p>Use <i>Cash drawer by currency</i>: count each currency against its <i>Kept</i> figure (received minus change given). Refunds paid in cash are shown separately.</p></div>
+
+      <h3 id="report-list">Reports</h3>
+      <p>Pick a report on the left, choose the dates (or a quick range such as <i>This month</i>) and any filters. Sort by clicking a column heading. <span class="ui">Export CSV</span> downloads the table for Excel or Google Sheets.</p>
+      <div class="table"><table>
+        <thead><tr><th>Report</th><th>Shows</th></tr></thead>
+        <tbody>
+          <tr><td>Sales summary</td><td>Orders, discounts, tax, returns, cost and profit per day, week or month</td></tr>
+          <tr><td>Sales by item</td><td>Quantity, net sales, cost, profit and margin per product, service, item and package</td></tr>
+          <tr><td>Sales by category</td><td>Net sales, cost and profit per category</td></tr>
+          <tr><td>Sales by hour / weekday</td><td>When the shop is busy</td></tr>
+          <tr><td>Sales by cashier</td><td>Orders, sales, discounts and refunds per cashier</td></tr>
+          <tr><td>Services by staff</td><td>Jobs, hours and revenue per person doing the work</td></tr>
+          <tr><td>Sales by customer</td><td>What each customer bought</td></tr>
+          <tr><td>Sales by branch</td><td>Sales, returns, cost and profit per branch</td></tr>
+          <tr><td>Payments &amp; cash drawer</td><td>Money received by method and currency, change given, refunds paid out</td></tr>
+          <tr><td>Discounts &amp; price changes</td><td>Every order discount, item discount and price override, with the reason</td></tr>
+          <tr><td>Returns by item</td><td>What came back, how much was refunded and why</td></tr>
+          <tr><td>Stock valuation</td><td>Stock on hand now, at cost and at selling price</td></tr>
+          <tr><td>Stock movements</td><td>Stock in and out by kind: sales, purchases, adjustments, transfers</td></tr>
+          <tr><td>Purchases by vendor</td><td>Ordered, received, invoiced and paid per vendor</td></tr>
+          <tr><td>Payables aging</td><td>What is owed to each vendor, by how overdue it is</td></tr>
+          <tr><td>Tax report</td><td>VAT collected and refunded, by rate and tax mode, with CSV export (only while the store charges VAT)</td></tr>
+        </tbody>
+      </table></div>
+      <p>Which reports you see depends on your permissions: sales, inventory, purchasing and tax reports are granted separately.</p>
+    </section>
+
+    <!-- 12 -->
+    <section class="chapter" id="users" data-roles="admin manager">
+      <h2><span class="chap">12</span>Users, roles and the audit log</h2>
+      <div class="for"><span class="role">Administrator</span><span class="role">Manager (view)</span></div>
+
+      <h3 id="accounts">Staff accounts</h3>
+      <ol class="steps">
+        <li><span class="path">Users › Users</span> › <span class="ui">Add user</span>: full name, username (letters, numbers, dots, dashes), email, phone, role and branch.</li>
+        <li>Set a temporary password of at least 8 characters and give it to them in person. They must choose their own password when they first sign in.</li>
+      </ol>
+      <p>Under <span class="ui">Manage</span> for a user you can:</p>
+      <ul>
+        <li>edit their details, role and branch;</li>
+        <li>untick <span class="ui">Account can sign in</span> to disable the account;</li>
+        <li><span class="ui">Reset password</span>, which also unlocks the account and signs them out everywhere;</li>
+        <li><span class="ui">Unlock</span> an account locked after wrong passwords;</li>
+        <li><span class="ui">Sign out everywhere</span>, for a lost phone or someone who has left.</li>
+      </ul>
+      <p>You cannot change your own role or disable your own account, and you can only give roles within your own permissions.</p>
+
+      <h3 id="roles">Roles and permissions</h3>
+      <p>Each person has one role. A role is a set of permissions, and the server checks every action, so a hidden button is never the only protection. Under <span class="path">Users › Roles &amp; permissions</span> you can adjust the built-in roles or create new ones (<span class="ui">New role</span>, or <span class="ui">Copy as new role</span>). Some permissions bring others with them, such as refunding, which needs viewing orders. Each role also has a <b>maximum item discount</b>.</p>
+      <div class="table"><table class="matrix">
+        <thead><tr><th>Permission (built-in roles)</th><th>Cashier</th><th>Inventory staff</th><th>Manager</th><th>Accountant</th><th>Admin</th></tr></thead>
+        <tbody>
+          <tr><td>Sell, take payments, print receipts</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>View orders</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Cancel unpaid orders</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Refunds and returns</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Discount items</td><td class="no">·</td><td class="no">·</td><td class="yes">✓ 20%</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Override prices</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Sell below cost</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Manage held sales</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>View / manage customers</td><td class="yes">✓ / ✓</td><td class="no">·</td><td class="yes">✓ / ✓</td><td class="yes">✓ / ·</td><td class="yes">✓ / ✓</td></tr>
+          <tr><td>Manage catalog</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>View inventory</td><td class="no">·</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Adjust, count, transfer stock</td><td class="no">·</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Purchase orders</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Receive deliveries</td><td class="no">·</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Vendor invoices and payments</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Dashboard and sales reports</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Inventory reports</td><td class="no">·</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>View settings</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Change company, tax, KHQR, currency settings</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Manage users</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>Audit log</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td></tr>
+          <tr><td>All branches</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        </tbody>
+      </table></div>
+      <p>The <b>Super Admin</b> role always has every permission, including new ones, and cannot be changed. Out of the box, only the Super Admin can create and edit roles (the <i>Manage roles</i> permission). At least one active Super Admin must remain.</p>
+
+      <h3 id="audit">Audit log</h3>
+      <p><span class="path">Users › Audit log</span> records who did what and when: sign-ins and failed sign-ins, account changes, settings, catalog and stock changes, price changes, discounts, refunds, cancellations, held sales, purchasing and payments. Filter by person, area, dates or text. Open an entry to see exactly which fields changed. Security events, such as locked accounts and reused sessions, are highlighted.</p>
+    </section>
+
+    <!-- 13 -->
+    <section class="chapter" id="settings" data-roles="admin manager accountant">
+      <h2><span class="chap">13</span>Settings</h2>
+      <div class="for"><span class="role">Administrator changes</span><span class="role">Manager and Accountant view</span></div>
+
+      <h3 id="general">General</h3>
+      <p>Trading name and legal name, logo (printed on receipts, up to 512 KB), VAT TIN, address, phone, email, website, the <b>time zone</b> (which decides the business day for reports and receipt numbers) and the <b>receipt footer</b>, for example your return policy.</p>
+
+      <h3 id="branch-settings">Branches &amp; storages</h3>
+      <p>Add branches (a selling storage called <i>Shop floor</i> is created with each) and storages. Choose the selling storage with <span class="ui">Make selling</span>. A storage must be empty before it can be deactivated, and the selling storage cannot be deactivated.</p>
+
+      <h3 id="taxes">Taxes &amp; payments</h3>
+      <h4>Tax mode</h4>
+      <div class="table"><table>
+        <thead><tr><th>Mode</th><th>Listed price $10.00, VAT 10%</th></tr></thead>
+        <tbody>
+          <tr><td><b>No VAT</b></td><td>Customer pays $10.00; no tax is calculated.</td></tr>
+          <tr><td><b>VAT included</b></td><td>Customer pays $10.00, of which VAT $0.91 (price × rate ÷ (100 + rate)).</td></tr>
+          <tr><td><b>VAT setup value</b></td><td>Customer pays $11.00; $1.00 VAT is added at checkout.</td></tr>
+        </tbody>
+      </table></div>
+      <p>You also set the display name (for example “VAT”), the default rate, a maximum rate, and which types are taxed. Under <b>Tax rates</b>, add rates such as <i>Exempt 0%</i> and assign them to catalog entries. Orders always keep the tax they were sold with; changes only affect new sales.</p>
+      <h4>Currencies</h4>
+      <p>USD is the base currency: prices, totals and reports are in dollars. Turn on other currencies (such as riel) to accept them in cash. Press <span class="ui">Update rate</span> whenever the rate changes. New sales use the new rate, and past sales keep theirs. Each currency has a <b>cash step</b>, the smallest amount handed over (100 for riel).</p>
+      <h4>KHQR payments</h4>
+      <ul>
+        <li><b>Test (simulated)</b>: QR codes are shown but no money moves. For training and setup.</li>
+        <li><b>Live (Bakong)</b>: real payments. You need the store's Bakong account ID (for example <span class="path">shopname@aclb</span>), the merchant name and city shown in the customer's app, and a Bakong API token. Use <span class="ui">Test connection</span> to check the token. Tokens expire after 90 days and must be renewed on the Bakong API portal.</li>
+        <li>How long a code stays valid (minutes).</li>
+      </ul>
+
+      <h3 id="system">System</h3>
+      <p>A read-only page for whoever runs the server. It shows the version, database, session lengths, sign-in lockout, held-sale and KHQR timers, and background jobs. Items marked with a warning need attention before the system goes live, such as the development signing key or HTTPS-only cookies being off. These settings are changed on the server, not here.</p>
+    </section>
+
+    <!-- 14 -->
+    <section class="chapter" id="rules" data-roles="cashier inventory manager accountant admin">
+      <h2><span class="chap">14</span>Rules at a glance</h2>
+      <div class="for"><span class="role">Everyone</span></div>
+      <div class="table"><table>
+        <thead><tr><th>Rule</th><th class="num">Value</th></tr></thead>
+        <tbody>
+          <tr><td>Wrong passwords before the account locks</td><td class="num">5</td></tr>
+          <tr><td>Lock time after too many wrong passwords</td><td class="num">15 min</td></tr>
+          <tr><td>Minimum password length</td><td class="num">8 characters</td></tr>
+          <tr><td>Stay signed in on a device</td><td class="num">7 days</td></tr>
+          <tr><td>Open carts per cashier</td><td class="num">3</td></tr>
+          <tr><td>Held sale expires if not resumed</td><td class="num">24 hours</td></tr>
+          <tr><td>Held sale lock released if left open</td><td class="num">30 min</td></tr>
+          <tr><td>KHQR code valid for (default)</td><td class="num">5 min</td></tr>
+          <tr><td>Manager maximum item discount</td><td class="num">20%</td></tr>
+          <tr><td>Order discount maximum</td><td class="num">100%</td></tr>
+          <tr><td>Riel cash step</td><td class="num">100 ៛</td></tr>
+          <tr><td>Product picture size</td><td class="num">up to 2 MB</td></tr>
+          <tr><td>Company logo size</td><td class="num">up to 512 KB</td></tr>
+          <tr><td>Lines per sale, purchase order or transfer</td><td class="num">up to 200</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note rule"><b>Things the system never allows</b>
+        <ul>
+          <li>Selling more than is in stock, or stock below zero.</li>
+          <li>Cancelling a paid order (refund it instead), or refunding more than was paid.</li>
+          <li>Changing a price without a reason, or below cost without permission.</li>
+          <li>Editing a purchase order after it is placed, or voiding a vendor invoice that has payments.</li>
+          <li>Deleting history: entries, customers and staff are deactivated, never erased.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 15 -->
+    <section class="chapter" id="trouble" data-roles="cashier inventory manager accountant admin">
+      <h2><span class="chap">15</span>Troubleshooting</h2>
+      <div class="for"><span class="role">Everyone</span></div>
+      <div class="table"><table>
+        <thead><tr><th>You see</th><th>What to do</th></tr></thead>
+        <tbody>
+          <tr><td>“Not enough stock of … (0 left, 1 needed)”</td><td>The selling storage is out. Check other storages in the catalog and transfer stock, or sell something else.</td></tr>
+          <tr><td>“Prices changed: the total is now …”</td><td>The cart has reloaded today's prices. Tell the customer the new total and charge again.</td></tr>
+          <tr><td>Tile greyed out with <span class="chip danger">Out</span></td><td>No stock in this branch's selling storage. For a package, something inside is out.</td></tr>
+          <tr><td>“… is completing HOLD-… at another till”</td><td>Another cashier has that held sale open. Ask them, or ask a manager to <span class="ui">Take over</span>.</td></tr>
+          <tr><td>KHQR code expired</td><td>The sale was cancelled and the items returned. Go back to the cart and charge again.</td></tr>
+          <tr><td>Customer paid by KHQR but the till still waits</td><td>Wait a few seconds; the till checks every few seconds. If the store is in test mode, no real payment arrives. Ask a manager to check <span class="path">Settings › Taxes &amp; payments</span>.</td></tr>
+          <tr><td>“Account locked for 15 minutes”</td><td>Wait, or ask an administrator to <span class="ui">Unlock</span> your account.</td></tr>
+          <tr><td>“Your role doesn't include this page”</td><td>Ask an administrator if you need it.</td></tr>
+          <tr><td>“Can't reach the POS server right now”</td><td>Check the network. The screen keeps trying and you stay signed in. Nothing in the cart is lost.</td></tr>
+          <tr><td>Camera does not start</td><td>Allow the camera in the browser's site settings. It only works on a secure address (https) or on the computer running the POS.</td></tr>
+          <tr><td>Labels print the wrong size</td><td>In the print dialog set margins to <i>None</i>, scale to <i>100%</i>, and choose the label printer's paper size.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <!-- 16 -->
+    <section class="chapter" id="glossary" data-roles="cashier inventory manager accountant admin">
+      <h2><span class="chap">16</span>Glossary · <span class="km">ពាក្យគន្លឹះ</span></h2>
+      <div class="for"><span class="role">Everyone</span></div>
+      <p>The words used on screen in English, with the Khmer the app shows.</p>
+      <div class="table"><table>
+        <thead><tr><th>English</th><th>ខ្មែរ</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>Sell</td><td class="km">លក់</td><td>The till screen.</td></tr>
+          <tr><td>Cart</td><td class="km">រទេះ</td><td>The sale you are building; up to three at once.</td></tr>
+          <tr><td>Hold / Held sales</td><td class="km">ផ្អាក / ការលក់ដែលបានផ្អាក</td><td>A sale parked to finish later, at any till.</td></tr>
+          <tr><td>Walk-in Customer</td><td class="km">អតិថិជនទូទៅ</td><td>The default customer for anyone not on file.</td></tr>
+          <tr><td>Product / Item / Service / Package</td><td class="km">ផលិតផល / សម្ភារៈ / សេវាកម្ម / កញ្ចប់</td><td>The four kinds of catalog entry.</td></tr>
+          <tr><td>Stock</td><td class="km">ស្តុក</td><td>Units on hand in a storage.</td></tr>
+          <tr><td>Storage</td><td class="km">ឃ្លាំង</td><td>A place stock is kept; one per branch is for selling.</td></tr>
+          <tr><td>Transfer</td><td class="km">ការផ្ទេរ</td><td>Stock moved between storages or branches.</td></tr>
+          <tr><td>Adjustment / Stock count</td><td class="km">ការកែតម្រូវ / ការរាប់ស្តុក</td><td>Correcting stock to match the shelf.</td></tr>
+          <tr><td>Cost</td><td class="km">ថ្លៃដើម</td><td>What you pay the supplier.</td></tr>
+          <tr><td>Discount</td><td class="km">បញ្ចុះតម្លៃ</td><td>Money off an item or the whole order.</td></tr>
+          <tr><td>Change</td><td class="km">ប្រាក់អាប់</td><td>Money handed back to the customer.</td></tr>
+          <tr><td>Receipt</td><td class="km">បង្កាន់ដៃ</td><td>The printed proof of sale.</td></tr>
+          <tr><td>Refund / Return</td><td class="km">សងប្រាក់ / ការប្រគល់វិញ</td><td>Money back for items brought back.</td></tr>
+          <tr><td>Purchase order</td><td class="km">បញ្ជាទិញ</td><td>An order to a vendor.</td></tr>
+          <tr><td>Vendor</td><td class="km">អ្នកផ្គត់ផ្គង់</td><td>A supplier.</td></tr>
+          <tr><td>Vendor invoice</td><td class="km">វិក្កយបត្រអ្នកផ្គត់ផ្គង់</td><td>The bill from a vendor; paid in full or in parts.</td></tr>
+          <tr><td>Exchange rate</td><td class="km">អត្រាប្តូរប្រាក់</td><td>Riel per US dollar, set in Settings.</td></tr>
+          <tr><td>Role / Permission</td><td class="km">តួនាទី / សិទ្ធិ</td><td>What a person is allowed to do.</td></tr>
+          <tr><td>Audit log</td><td class="km">កំណត់ហេតុសវនកម្ម</td><td>The record of who did what and when.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <footer>
+      This manual describes the system as installed, with its built-in roles and default settings. If your administrator has changed a role or a setting, your screens may show a little more or less than described here.
+    </footer>
+  </main>
+</div>
+
+<script>
+(() => {
+  // Role filter: shows the chapters a role needs; remembered in this browser.
+  const buttons = [...document.querySelectorAll(".filter button")];
+  const chapters = [...document.querySelectorAll("section.chapter")];
+  const links = [...document.querySelectorAll("#toc-list a")];
+  const note = document.getElementById("filtered-note");
+  function apply(role) {
+    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.role === role)));
+    chapters.forEach((c) => {
+      const show = role === "all" || c.dataset.roles.split(" ").includes(role);
+      c.hidden = !show;
+      const link = links.find((a) => a.getAttribute("href") === "#" + c.id);
+      if (link) link.parentElement.hidden = !show;
+    });
+    note.hidden = role === "all";
+    try { localStorage.setItem("manual.role", role); } catch (e) { /* not remembered */ }
+  }
+  buttons.forEach((b) => b.addEventListener("click", () => apply(b.dataset.role)));
+  let saved = "all";
+  try { saved = localStorage.getItem("manual.role") || "all"; } catch (e) { /* default */ }
+  if (buttons.some((b) => b.dataset.role === saved)) apply(saved);
+
+  // Highlight the chapter being read.
+  const byId = Object.fromEntries(links.map((a) => [a.getAttribute("href").slice(1), a]));
+  const seen = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting && byId[e.target.id]) {
+        links.forEach((a) => a.classList.remove("current"));
+        byId[e.target.id].classList.add("current");
+      }
+    });
+  }, { rootMargin: "-20% 0px -70% 0px" });
+  chapters.forEach((c) => seen.observe(c));
+
+  // On a phone, close the contents after choosing a chapter.
+  const toc = document.getElementById("toc");
+  if (window.matchMedia("(max-width: 900px)").matches) {
+    toc.open = false;
+    links.forEach((a) => a.addEventListener("click", () => { toc.open = false; }));
+  }
+})();
+</script>
+</body>
+</html>

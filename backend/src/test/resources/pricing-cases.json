@@ -1,0 +1,1116 @@
+[
+  {
+    "name": "A: No VAT - customer pays the listed price",
+    "lines": [
+      {
+        "unitPrice": "100.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "Not taxed",
+          "rate": "0",
+          "included": false
+        }
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "expected": {
+      "subtotal": "100.00",
+      "itemDiscount": "0.00",
+      "discount": "0.00",
+      "taxAdded": "0.00",
+      "taxIncluded": "0.00",
+      "total": "100.00",
+      "taxableAmount": "0.00",
+      "nonTaxableAmount": "100.00",
+      "lines": [
+        {
+          "total": "100.00",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "100.00",
+          "tax": "0.00",
+          "paid": "100.00"
+        }
+      ]
+    }
+  },
+  {
+    "name": "B: VAT included 10% - 110 holds 10 VAT",
+    "lines": [
+      {
+        "unitPrice": "110.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        }
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "expected": {
+      "subtotal": "110.00",
+      "itemDiscount": "0.00",
+      "discount": "0.00",
+      "taxAdded": "0.00",
+      "taxIncluded": "10.00",
+      "total": "110.00",
+      "taxableAmount": "100.00",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "110.00",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "100.00",
+          "tax": "10.00",
+          "paid": "110.00"
+        }
+      ]
+    }
+  },
+  {
+    "name": "C: VAT setup value 10% - 100 plus 10 VAT",
+    "lines": [
+      {
+        "unitPrice": "100.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "expected": {
+      "subtotal": "100.00",
+      "itemDiscount": "0.00",
+      "discount": "0.00",
+      "taxAdded": "10.00",
+      "taxIncluded": "0.00",
+      "total": "110.00",
+      "taxableAmount": "100.00",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "100.00",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "100.00",
+          "tax": "10.00",
+          "paid": "110.00"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Exclusive, percent discount over taxable and exempt lines",
+    "lines": [
+      {
+        "unitPrice": "12.50",
+        "quantity": 2,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "3.00",
+        "quantity": 3,
+        "hours": null,
+        "tax": {
+          "rateId": 2,
+          "name": "Exempt",
+          "rate": "0",
+          "included": false
+        }
+      }
+    ],
+    "discountType": "PERCENT",
+    "discountValue": "15",
+    "expected": {
+      "subtotal": "34.00",
+      "itemDiscount": "0.00",
+      "discount": "5.10",
+      "taxAdded": "2.13",
+      "taxIncluded": "0.00",
+      "total": "31.03",
+      "taxableAmount": "21.25",
+      "nonTaxableAmount": "7.65",
+      "lines": [
+        {
+          "total": "25.00",
+          "itemDiscount": "0.00",
+          "discount": "3.75",
+          "net": "21.25",
+          "tax": "2.13",
+          "paid": "23.38"
+        },
+        {
+          "total": "9.00",
+          "itemDiscount": "0.00",
+          "discount": "1.35",
+          "net": "7.65",
+          "tax": "0.00",
+          "paid": "7.65"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Inclusive, amount discount with rounding",
+    "lines": [
+      {
+        "unitPrice": "0.99",
+        "quantity": 3,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        }
+      },
+      {
+        "unitPrice": "2.35",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        }
+      }
+    ],
+    "discountType": "AMOUNT",
+    "discountValue": "1.00",
+    "expected": {
+      "subtotal": "5.32",
+      "itemDiscount": "0.00",
+      "discount": "1.00",
+      "taxAdded": "0.00",
+      "taxIncluded": "0.39",
+      "total": "4.32",
+      "taxableAmount": "3.93",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "2.97",
+          "itemDiscount": "0.00",
+          "discount": "0.56",
+          "net": "2.19",
+          "tax": "0.22",
+          "paid": "2.41"
+        },
+        {
+          "total": "2.35",
+          "itemDiscount": "0.00",
+          "discount": "0.44",
+          "net": "1.74",
+          "tax": "0.17",
+          "paid": "1.91"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Many small lines - cents go to the last line",
+    "lines": [
+      {
+        "unitPrice": "0.33",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "0.33",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "0.33",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "0.33",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "0.33",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "0.33",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "0.33",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      }
+    ],
+    "discountType": "PERCENT",
+    "discountValue": "7.5",
+    "expected": {
+      "subtotal": "2.31",
+      "itemDiscount": "0.00",
+      "discount": "0.17",
+      "taxAdded": "0.21",
+      "taxIncluded": "0.00",
+      "total": "2.35",
+      "taxableAmount": "2.14",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "0.33",
+          "itemDiscount": "0.00",
+          "discount": "0.02",
+          "net": "0.31",
+          "tax": "0.03",
+          "paid": "0.34"
+        },
+        {
+          "total": "0.33",
+          "itemDiscount": "0.00",
+          "discount": "0.02",
+          "net": "0.31",
+          "tax": "0.03",
+          "paid": "0.34"
+        },
+        {
+          "total": "0.33",
+          "itemDiscount": "0.00",
+          "discount": "0.02",
+          "net": "0.31",
+          "tax": "0.03",
+          "paid": "0.34"
+        },
+        {
+          "total": "0.33",
+          "itemDiscount": "0.00",
+          "discount": "0.02",
+          "net": "0.31",
+          "tax": "0.03",
+          "paid": "0.34"
+        },
+        {
+          "total": "0.33",
+          "itemDiscount": "0.00",
+          "discount": "0.02",
+          "net": "0.31",
+          "tax": "0.03",
+          "paid": "0.34"
+        },
+        {
+          "total": "0.33",
+          "itemDiscount": "0.00",
+          "discount": "0.02",
+          "net": "0.31",
+          "tax": "0.03",
+          "paid": "0.34"
+        },
+        {
+          "total": "0.33",
+          "itemDiscount": "0.00",
+          "discount": "0.05",
+          "net": "0.28",
+          "tax": "0.03",
+          "paid": "0.31"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Hourly service, 1.5 h",
+    "lines": [
+      {
+        "unitPrice": "15.00",
+        "quantity": 1,
+        "hours": "1.5",
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "expected": {
+      "subtotal": "22.50",
+      "itemDiscount": "0.00",
+      "discount": "0.00",
+      "taxAdded": "2.25",
+      "taxIncluded": "0.00",
+      "total": "24.75",
+      "taxableAmount": "22.50",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "22.50",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "22.50",
+          "tax": "2.25",
+          "paid": "24.75"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Package taxed once at its own rate (included)",
+    "lines": [
+      {
+        "unitPrice": "25.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        }
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "expected": {
+      "subtotal": "25.00",
+      "itemDiscount": "0.00",
+      "discount": "0.00",
+      "taxAdded": "0.00",
+      "taxIncluded": "2.27",
+      "total": "25.00",
+      "taxableAmount": "22.73",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "25.00",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "22.73",
+          "tax": "2.27",
+          "paid": "25.00"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Mixed rates added on top, amount discount",
+    "lines": [
+      {
+        "unitPrice": "10.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "9.99",
+        "quantity": 2,
+        "hours": null,
+        "tax": {
+          "rateId": 3,
+          "name": "Specific tax",
+          "rate": "0.05",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "4.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 2,
+          "name": "Exempt",
+          "rate": "0",
+          "included": false
+        }
+      }
+    ],
+    "discountType": "AMOUNT",
+    "discountValue": "3",
+    "expected": {
+      "subtotal": "33.98",
+      "itemDiscount": "0.00",
+      "discount": "3.00",
+      "taxAdded": "1.82",
+      "taxIncluded": "0.00",
+      "total": "32.80",
+      "taxableAmount": "27.34",
+      "nonTaxableAmount": "3.64",
+      "lines": [
+        {
+          "total": "10.00",
+          "itemDiscount": "0.00",
+          "discount": "0.88",
+          "net": "9.12",
+          "tax": "0.91",
+          "paid": "10.03"
+        },
+        {
+          "total": "19.98",
+          "itemDiscount": "0.00",
+          "discount": "1.76",
+          "net": "18.22",
+          "tax": "0.91",
+          "paid": "19.13"
+        },
+        {
+          "total": "4.00",
+          "itemDiscount": "0.00",
+          "discount": "0.36",
+          "net": "3.64",
+          "tax": "0.00",
+          "paid": "3.64"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Out-of-scope product next to a taxed service (same rate id)",
+    "lines": [
+      {
+        "unitPrice": "5.00",
+        "quantity": 2,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "Not taxed",
+          "rate": "0",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "20.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      }
+    ],
+    "discountType": "PERCENT",
+    "discountValue": "10",
+    "expected": {
+      "subtotal": "30.00",
+      "itemDiscount": "0.00",
+      "discount": "3.00",
+      "taxAdded": "1.80",
+      "taxIncluded": "0.00",
+      "total": "28.80",
+      "taxableAmount": "18.00",
+      "nonTaxableAmount": "9.00",
+      "lines": [
+        {
+          "total": "10.00",
+          "itemDiscount": "0.00",
+          "discount": "1.00",
+          "net": "9.00",
+          "tax": "0.00",
+          "paid": "9.00"
+        },
+        {
+          "total": "20.00",
+          "itemDiscount": "0.00",
+          "discount": "2.00",
+          "net": "18.00",
+          "tax": "1.80",
+          "paid": "19.80"
+        }
+      ]
+    }
+  },
+  {
+    "name": "100% discount",
+    "lines": [
+      {
+        "unitPrice": "8.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "2.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 2,
+          "name": "Exempt",
+          "rate": "0",
+          "included": false
+        }
+      }
+    ],
+    "discountType": "PERCENT",
+    "discountValue": "100",
+    "expected": {
+      "subtotal": "10.00",
+      "itemDiscount": "0.00",
+      "discount": "10.00",
+      "taxAdded": "0.00",
+      "taxIncluded": "0.00",
+      "total": "0.00",
+      "taxableAmount": "0.00",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "8.00",
+          "itemDiscount": "0.00",
+          "discount": "8.00",
+          "net": "0.00",
+          "tax": "0.00",
+          "paid": "0.00"
+        },
+        {
+          "total": "2.00",
+          "itemDiscount": "0.00",
+          "discount": "2.00",
+          "net": "0.00",
+          "tax": "0.00",
+          "paid": "0.00"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Three equal inclusive lines share the tax",
+    "lines": [
+      {
+        "unitPrice": "1.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        }
+      },
+      {
+        "unitPrice": "1.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        }
+      },
+      {
+        "unitPrice": "1.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        }
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "expected": {
+      "subtotal": "3.00",
+      "itemDiscount": "0.00",
+      "discount": "0.00",
+      "taxAdded": "0.00",
+      "taxIncluded": "0.27",
+      "total": "3.00",
+      "taxableAmount": "2.73",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "1.00",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "0.91",
+          "tax": "0.09",
+          "paid": "1.00"
+        },
+        {
+          "total": "1.00",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "0.91",
+          "tax": "0.09",
+          "paid": "1.00"
+        },
+        {
+          "total": "1.00",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "0.91",
+          "tax": "0.09",
+          "paid": "1.00"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Discount larger than subtotal is capped",
+    "lines": [
+      {
+        "unitPrice": "3.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      }
+    ],
+    "discountType": "AMOUNT",
+    "discountValue": "50",
+    "expected": {
+      "subtotal": "3.00",
+      "itemDiscount": "0.00",
+      "discount": "3.00",
+      "taxAdded": "0.00",
+      "taxIncluded": "0.00",
+      "total": "0.00",
+      "taxableAmount": "0.00",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "3.00",
+          "itemDiscount": "0.00",
+          "discount": "3.00",
+          "net": "0.00",
+          "tax": "0.00",
+          "paid": "0.00"
+        }
+      ]
+    }
+  },
+  {
+    "name": "No VAT with discount",
+    "lines": [
+      {
+        "unitPrice": "7.25",
+        "quantity": 3,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "Not taxed",
+          "rate": "0",
+          "included": false
+        }
+      },
+      {
+        "unitPrice": "1.10",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "Not taxed",
+          "rate": "0",
+          "included": false
+        }
+      }
+    ],
+    "discountType": "PERCENT",
+    "discountValue": "12.5",
+    "expected": {
+      "subtotal": "22.85",
+      "itemDiscount": "0.00",
+      "discount": "2.86",
+      "taxAdded": "0.00",
+      "taxIncluded": "0.00",
+      "total": "19.99",
+      "taxableAmount": "0.00",
+      "nonTaxableAmount": "19.99",
+      "lines": [
+        {
+          "total": "21.75",
+          "itemDiscount": "0.00",
+          "discount": "2.72",
+          "net": "19.03",
+          "tax": "0.00",
+          "paid": "19.03"
+        },
+        {
+          "total": "1.10",
+          "itemDiscount": "0.00",
+          "discount": "0.14",
+          "net": "0.96",
+          "tax": "0.00",
+          "paid": "0.96"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Item discount % on one line, VAT added",
+    "lines": [
+      {
+        "unitPrice": "10.00",
+        "quantity": 2,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        },
+        "discountType": "PERCENT",
+        "discountValue": "15"
+      },
+      {
+        "unitPrice": "4.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "expected": {
+      "subtotal": "24.00",
+      "itemDiscount": "3.00",
+      "discount": "0.00",
+      "taxAdded": "2.10",
+      "taxIncluded": "0.00",
+      "total": "23.10",
+      "taxableAmount": "21.00",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "20.00",
+          "itemDiscount": "3.00",
+          "discount": "3.00",
+          "net": "17.00",
+          "tax": "1.70",
+          "paid": "18.70"
+        },
+        {
+          "total": "4.00",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "4.00",
+          "tax": "0.40",
+          "paid": "4.40"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Item discount amount, VAT included",
+    "lines": [
+      {
+        "unitPrice": "11.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        },
+        "discountType": "AMOUNT",
+        "discountValue": "1.10"
+      },
+      {
+        "unitPrice": "2.20",
+        "quantity": 3,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        }
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "expected": {
+      "subtotal": "17.60",
+      "itemDiscount": "1.10",
+      "discount": "0.00",
+      "taxAdded": "0.00",
+      "taxIncluded": "1.50",
+      "total": "16.50",
+      "taxableAmount": "15.00",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "11.00",
+          "itemDiscount": "1.10",
+          "discount": "1.10",
+          "net": "9.00",
+          "tax": "0.90",
+          "paid": "9.90"
+        },
+        {
+          "total": "6.60",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "6.00",
+          "tax": "0.60",
+          "paid": "6.60"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Item discount then order discount",
+    "lines": [
+      {
+        "unitPrice": "9.99",
+        "quantity": 3,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        },
+        "discountType": "PERCENT",
+        "discountValue": "10"
+      },
+      {
+        "unitPrice": "5.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 2,
+          "name": "Exempt",
+          "rate": "0",
+          "included": false
+        },
+        "discountType": "AMOUNT",
+        "discountValue": "0.50"
+      },
+      {
+        "unitPrice": "2.50",
+        "quantity": 2,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      }
+    ],
+    "discountType": "PERCENT",
+    "discountValue": "5",
+    "expected": {
+      "subtotal": "39.97",
+      "itemDiscount": "3.50",
+      "discount": "1.82",
+      "taxAdded": "3.04",
+      "taxIncluded": "0.00",
+      "total": "37.69",
+      "taxableAmount": "30.37",
+      "nonTaxableAmount": "4.28",
+      "lines": [
+        {
+          "total": "29.97",
+          "itemDiscount": "3.00",
+          "discount": "4.35",
+          "net": "25.62",
+          "tax": "2.56",
+          "paid": "28.18"
+        },
+        {
+          "total": "5.00",
+          "itemDiscount": "0.50",
+          "discount": "0.72",
+          "net": "4.28",
+          "tax": "0.00",
+          "paid": "4.28"
+        },
+        {
+          "total": "5.00",
+          "itemDiscount": "0.00",
+          "discount": "0.25",
+          "net": "4.75",
+          "tax": "0.48",
+          "paid": "5.23"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Item discount larger than the line is capped",
+    "lines": [
+      {
+        "unitPrice": "3.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        },
+        "discountType": "AMOUNT",
+        "discountValue": "10"
+      }
+    ],
+    "discountType": "AMOUNT",
+    "discountValue": "1",
+    "expected": {
+      "subtotal": "3.00",
+      "itemDiscount": "3.00",
+      "discount": "0.00",
+      "taxAdded": "0.00",
+      "taxIncluded": "0.00",
+      "total": "0.00",
+      "taxableAmount": "0.00",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "3.00",
+          "itemDiscount": "3.00",
+          "discount": "3.00",
+          "net": "0.00",
+          "tax": "0.00",
+          "paid": "0.00"
+        }
+      ]
+    }
+  },
+  {
+    "name": "100% item discount on an hourly service",
+    "lines": [
+      {
+        "unitPrice": "15.00",
+        "quantity": 1,
+        "hours": "1.5",
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        },
+        "discountType": "PERCENT",
+        "discountValue": "100"
+      },
+      {
+        "unitPrice": "1.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        }
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "expected": {
+      "subtotal": "23.50",
+      "itemDiscount": "22.50",
+      "discount": "0.00",
+      "taxAdded": "0.10",
+      "taxIncluded": "0.00",
+      "total": "1.10",
+      "taxableAmount": "1.00",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "22.50",
+          "itemDiscount": "22.50",
+          "discount": "22.50",
+          "net": "0.00",
+          "tax": "0.00",
+          "paid": "0.00"
+        },
+        {
+          "total": "1.00",
+          "itemDiscount": "0.00",
+          "discount": "0.00",
+          "net": "1.00",
+          "tax": "0.10",
+          "paid": "1.10"
+        }
+      ]
+    }
+  }
+]

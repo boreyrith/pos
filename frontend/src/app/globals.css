@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+/* Design tokens. Components use the Tailwind names below (bg-surface, text-muted, ...). */
+:root {
+  --bg: #f4f4f2;
+  --surface: #ffffff;
+  --surface-2: #f9f9f8;
+  --border: #e4e3df;
+  --text: #1c1b19;
+  --muted: #6b6a65;
+  --primary: #1d5fb3;
+  --primary-hover: #174f96;
+  --primary-soft: #e8f0fb;
+  --on-primary: #ffffff;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --success: #067647;
+  --success-soft: #e6f4ec;
+  --warning: #b54708;
+  --warning-soft: #fef3e6;
+  --chart-1: #2a78d6;
+  --chart-grid: #e9e8e4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121211;
+    --surface: #1a1a19;
+    --surface-2: #222220;
+    --border: #33332f;
+    --text: #f0efec;
+    --muted: #a3a29a;
+    --primary: #3b82e0;
+    --primary-hover: #5596ea;
+    --primary-soft: #1b2a3f;
+    --on-primary: #ffffff;
+    --danger: #f97066;
+    --danger-soft: #3b1c1a;
+    --success: #47cd89;
+    --success-soft: #16302a;
+    --warning: #fdb022;
+    --warning-soft: #3a2a12;
+    --chart-1: #3987e5;
+    --chart-grid: #2c2c29;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-chart-1: var(--chart-1);
+  --color-chart-grid: var(--chart-grid);
+  /* System fonts: no network needed, and Khmer falls back to the OS's Khmer font. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Khmer", "Khmer UI", "Khmer Sangam MN", "Leelawadee UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Noto Sans Mono", monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Receipts print on 80mm thermal paper: only the receipt is printed. */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 72mm;
+    color: #000;
+    background: #fff;
+  }
+}
+
+/* Khmer script has stacked vowels and subscripts: give it room so they aren't clipped. */
+:lang(km) body {
+  line-height: 1.6;
+}

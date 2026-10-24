@@ -1,0 +1,81 @@
+spring:
+  application:
+    name: pos-api
+  profiles:
+    default: dev
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3307/pos_next?serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${DB_USERNAME:pos}
+    password: ${DB_PASSWORD:pos}
+    hikari:
+      data-source-properties:
+        # Store and read every timestamp in UTC, whatever the server's or JVM's time zone and
+        # however the URL is given (Docker, tests), so reports and history line up with orders.
+        connectionTimeZone: UTC
+        forceConnectionTimeZoneToSession: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+  flyway:
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      # Catalog images are up to 2 MB (checked in the app); leave room for the form overhead.
+      max-file-size: 3MB
+      max-request-size: 3MB
+
+server:
+  port: ${PORT:8081}
+  servlet:
+    context-path: /api
+  error:
+    include-message: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+springdoc:
+  swagger-ui:
+    path: /docs
+
+app:
+  jwt:
+    # Base64 HS256 key, at least 32 bytes. Generate one with: openssl rand -base64 48
+    secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1pbi1wcm9kdWN0aW9uLXBsZWFzZS0xMjM0NQ==}
+    access-token-ttl: 15m
+    refresh-token-ttl: 7d
+    # A refresh token sent again this soon after it was replaced is a lost response (a reload
+    # during a refresh), not theft: the browser gets a new token instead of being signed out.
+    refresh-reuse-grace: ${REFRESH_REUSE_GRACE:30s}
+    refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:false}
+  store:
+    name: ${STORE_NAME:POS Store}
+    timezone: ${STORE_TIMEZONE:Asia/Phnom_Penh}
+  khqr:
+    # Defaults: admins can change all of these under Settings > KHQR payments.
+    # SIMULATED: QR codes are generated but payments are confirmed by the "simulate" endpoint.
+    # BAKONG: payments are confirmed by polling the Bakong API (needs BAKONG_TOKEN).
+    mode: ${KHQR_MODE:SIMULATED}
+    bakong-account-id: ${BAKONG_ACCOUNT_ID:merchant@bank}
+    merchant-name: ${KHQR_MERCHANT_NAME:POS Store}
+    merchant-city: ${KHQR_MERCHANT_CITY:Phnom Penh}
+    api-base-url: ${BAKONG_API_URL:https://api-bakong.nbc.gov.kh}
+    api-token: ${BAKONG_TOKEN:}
+    expiry: 5m
+  holds:
+    # Held sales nobody resumes expire after this long; a hold left "in use" is released after lock-timeout.
+    expiry: ${HOLD_EXPIRY:24h}
+    lock-timeout: ${HOLD_LOCK_TIMEOUT:30m}
+  # Base64 AES-256 key for secrets saved in the database (the Bakong token). openssl rand -base64 32
+  secrets-key: ${SECRETS_KEY:}
+
+logging:
+  level:
+    com.pos: INFO
