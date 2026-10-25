@@ -3,7 +3,11 @@
 # Run once on the server. It never overwrites an existing .env.
 set -eu
 cd "$(dirname "$0")"
-if [ -f .env ]; then echo ".env already exists; edit it instead." >&2; exit 1; fi
+if [ -f .env ]; then
+  # Already set up: carry on (so "./init-env.sh && docker compose ... up" still starts the app).
+  echo "deploy/.env already exists, keeping it. Edit it to change settings; the first admin's password is ADMIN_PASSWORD in it."
+  exit 0
+fi
 rand() { openssl rand -base64 "$1" | tr -d '\n'; }
 pw() { openssl rand -hex 24; }
 
