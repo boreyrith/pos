@@ -136,6 +136,22 @@ The web app's sign-in uses a secure cookie, so it works only over HTTPS: sign in
 
 More options (session lengths, sign-in lockout, held-sale timers) are listed in `../.env.example` and shown in **Settings > System**. After editing `.env`, apply it with `docker compose -f docker-compose.prod.yml up -d`.
 
+## Sample data for testing
+
+For a test or demo server, `load-sample-data.sh` fills the POS with a ready-made store: **Munita Shop**, a kids fashion and baby shop with
+- 74 catalog entries with pictures (sizes, packs, services, gift sets), barcodes and Khmer names;
+- two branches (Main Shop in Phnom Penh, Siem Reap), 12 customers, 5 vendors;
+- six weeks of history: about 260 sales (cash in USD and riel, KHQR, discounts, returns, refunds), purchase orders and deliveries, vendor invoices and payments, transfers, a stock count, and held sales;
+- KHQR in test mode.
+
+```bash
+./load-sample-data.sh
+```
+
+It asks you to type `LOAD`, takes a backup, then **replaces all data**, including staff accounts and settings. All sample accounts (`admin`, `manager`, `cashier`, `tech`, `srmanager`, `stock`, `accountant`) get one new random password, printed at the end; the development passwords never work. The sample's dates end on the day it was made (see `git log deploy/sample-data`).
+
+To go live afterwards, start from an empty database: restore a backup taken before loading, or remove the data with `docker compose down -v` (deletes everything) and start again, which creates the first admin from `.env` once more.
+
 ## Backups
 
 The `backup` service dumps the database when it starts and then every `BACKUP_EVERY_HOURS`, into `deploy/backups/pos_next-<date>.sql.gz`, and deletes dumps older than `BACKUP_KEEP_DAYS`. Product pictures and the logo are in the database, so one file holds everything.
@@ -168,6 +184,8 @@ cd pos/deploy
 git pull
 docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+With sample data loaded, updating keeps it (the data is only replaced when you run `load-sample-data.sh` again, e.g. to refresh the dates).
 
 Database changes are applied automatically when the API starts (Flyway migrations); the API reports healthy once they're done. Sales stop for the minute or two the API restarts, so update outside opening hours.
 

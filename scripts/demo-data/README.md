@@ -55,6 +55,10 @@ It renders them to WebP with `sharp` from the frontend's dependencies and upload
 
 The random choices are seeded, so every run produces the same story, dated relative to today. Sales follow the store's tax mode (Settings > Taxes & payments). Switch to "VAT included" before step 4 if you want VAT on the receipts and in the tax report.
 
+## Sample data for deployments
+
+[`deploy/sample-data/munita-kids-store.sql.gz`](../../deploy/sample-data/) is this demo store as a database dump, loaded on a test server with `deploy/load-sample-data.sh` (which replaces every password). To remake it with fresh dates, run the steps above on a throwaway stack (the production images with `SPRING_PROFILES_ACTIVE=dev`), pointing the scripts at it with `POS_API_URL`, `POS_MYSQL_CONTAINER` and `API_URL`, then dump the database after `DELETE FROM refresh_tokens`.
+
 ## Demo logins
 
 | User | Password | Role | Branch |

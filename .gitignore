@@ -5,6 +5,7 @@
 
 # Database dumps and backups (never commit customer data)
 *.sql.gz
+!deploy/sample-data/*.sql.gz
 /backup*.sql
 *.dump
 

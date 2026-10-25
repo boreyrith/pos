@@ -27,8 +27,11 @@ import sys
 import urllib.error
 import urllib.request
 
-API = "http://localhost:8081/api"
-CONTAINER = "pos-next-mysql-1"
+import os
+
+# Overridable to build the sample data for deployments on a throwaway stack (see deploy/sample-data).
+API = os.environ.get("POS_API_URL", "http://localhost:8081/api")
+CONTAINER = os.environ.get("POS_MYSQL_CONTAINER", "pos-next-mysql-1")
 TZ = dt.timezone(dt.timedelta(hours=7))  # Asia/Phnom_Penh, no daylight saving
 DAYS = 30  # days of sales history; purchasing starts ~6 weeks back
 
