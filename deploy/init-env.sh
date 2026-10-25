@@ -9,6 +9,14 @@ if [ -f .env ]; then
   exit 0
 fi
 rand() { openssl rand -base64 "$1" | tr -d '\n'; }
+# The first port from $1 up that nothing on this machine listens on (other sites may use 3000, 8081...).
+free_port() {
+  p=$1
+  if command -v ss >/dev/null 2>&1; then
+    while ss -ltnH | awk '{print $4}' | grep -Eq "[:.]$p\$"; do p=$((p + 1)); done
+  fi
+  echo "$p"
+}
 pw() { openssl rand -hex 24; }
 
 printf 'Address people will open (e.g. pos.myshop.com, 10.0.129.216 or shop-pc.local): '; read -r site
@@ -56,9 +64,11 @@ if [ -n "$proxied" ]; then
 # Behind your own nginx/Apache: no Caddy; the web app and API listen on this machine only.
 # Site configs: ./proxy-config.sh nginx|apache. Use plain "docker compose ..." (no -f) so both files apply.
 COMPOSE_FILE=docker-compose.prod.yml:docker-compose.behind-proxy.yml
-WEB_PORT=3000
-API_PORT=8081
 ENV
+  web_port=$(free_port 3000)
+  api_port=$(free_port 8081)
+  [ "$api_port" != "$web_port" ] || api_port=$(free_port $((api_port + 1)))
+  printf 'WEB_PORT=%s\nAPI_PORT=%s\n' "$web_port" "$api_port" >> .env
 fi
 echo
 echo "Wrote deploy/.env. First sign-in: ${admin} / ${adminpw}  (you'll be asked to choose a new password)"
