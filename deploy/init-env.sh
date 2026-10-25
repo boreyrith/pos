@@ -26,7 +26,7 @@ case "$proxied" in
   [yY]*) proxied=yes; email= ;;
   *) proxied=; printf 'Email for Let'"'"'s Encrypt (leave empty for an internal certificate on a LAN): '; read -r email ;;
 esac
-printf 'Store name: '; read -r store
+printf 'Store name: '; read -r store; store=$(printf '%s' "$store" | tr -d '"')
 printf 'First admin username [admin]: '; read -r admin; admin=${admin:-admin}
 adminpw=$(openssl rand -base64 12 | tr -d '\n/+=')
 
@@ -45,7 +45,7 @@ JWT_SECRET=$(rand 48)
 SECRETS_KEY=$(rand 32)
 REFRESH_COOKIE_SECURE=true
 
-STORE_NAME=${store:-POS Store}
+STORE_NAME="${store:-POS Store}"
 STORE_TIMEZONE=Asia/Phnom_Penh
 
 # Used only on the very first start, to create the first administrator (who must change the password).
