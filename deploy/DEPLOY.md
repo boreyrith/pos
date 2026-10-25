@@ -117,7 +117,7 @@ Web app on `https://munita.virtual-assistant.space`, API on `https://api-munita.
 
 The web app's sign-in uses a secure cookie, so it works only over HTTPS: sign in after step 5.
 
-## Settings in `.env`## Settings in `.env`
+## Settings in `.env`
 
 | Variable | Meaning |
 | --- | --- |
