@@ -1,7 +1,12 @@
+# syntax=docker/dockerfile:1
 FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# Retries ride out a flaky connection; the cache mount keeps what was downloaded, so a rerun
+# after a dropped connection doesn't start from scratch.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund --prefer-offline \
+        --fetch-retries=6 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=180000 --fetch-timeout=600000
 
 FROM node:24-alpine AS build
 WORKDIR /app

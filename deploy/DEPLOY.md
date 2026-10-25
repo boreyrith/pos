@@ -126,6 +126,14 @@ KHQR starts in test mode, where a "Simulate customer payment" button confirms pa
 
 Bakong tokens last 90 days; the page warns two weeks before expiry.
 
+## If the build fails
+
+- **`ECONNRESET`, `ETIMEDOUT`, `network aborted` or a Maven download error:** the server's internet connection dropped while downloading packages. Run the same `up -d --build` again; downloads already finished are kept, so each attempt gets further.
+- **`open /var/lib/snapd/void/...: no such file or directory`:** Docker is the snap version; see *What you need*.
+- **`.env already exists`:** setup was already done in this folder; the existing `.env` is kept.
+
+Keep one copy of the repository on the server (e.g. `/opt/pos`) and always run the commands from its `deploy` folder: each copy has its own `.env`, and so its own passwords.
+
 ## Day to day
 
 | Task | Command (in `deploy/`) |
