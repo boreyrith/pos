@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="200 72 840 840">
+  <style>
+    .i { color: #000; }
+    @media (prefers-color-scheme: dark) { .i { color: #fff; } }
+  </style>
+  <g class="i" fill="none" stroke="currentColor" stroke-width="48" stroke-linecap="round">
+    <rect x="269" y="120" width="597" height="744" rx="44" />
+    <rect x="360" y="215" width="408" height="193" rx="26" />
+    <line x1="960" y1="336" x2="960" y2="797" />
+    <g fill="currentColor" stroke="none">
+      <rect x="334" y="480" width="123" height="72" rx="17" />
+      <rect x="502" y="480" width="123" height="72" rx="17" />
+      <rect x="670" y="480" width="123" height="72" rx="17" />
+      <rect x="334" y="600" width="123" height="72" rx="17" />
+      <rect x="502" y="600" width="123" height="72" rx="17" />
+      <rect x="670" y="600" width="123" height="72" rx="17" />
+      <rect x="334" y="720" width="123" height="72" rx="17" />
+      <rect x="502" y="720" width="123" height="72" rx="17" />
+      <rect x="670" y="720" width="123" height="72" rx="17" />
+    </g>
+  </g>
+</svg>
