@@ -20,11 +20,13 @@ The browser needs HTTPS for the camera scanner and the secure sign-in cookie, so
 ## First install
 
 ```bash
-git clone http://10.0.129.216/rith/pos-next.git
-cd pos-next/deploy
+git clone https://github.com/boreyrith/pos.git
+cd pos/deploy
 ./init-env.sh
 docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+If the repository is private, the server needs read access: a [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys) (clone with `git@github.com:boreyrith/pos.git`) or a fine-grained token with read-only access to this repository.
 
 `init-env.sh` asks for the address, an email (for Let's Encrypt; leave empty on a LAN), the store name and the admin username. It writes `deploy/.env` with random database passwords, signing key and secrets key, and prints the first admin's password. **Copy that `.env` somewhere safe** (a password manager): it is needed to restore a backup on a new server.
 
@@ -100,7 +102,7 @@ On a new server: clone the repo, put your saved `.env` in `deploy/`, `docker com
 ## Updating
 
 ```bash
-cd pos-next/deploy
+cd pos/deploy
 ./backup-now.sh
 git pull
 docker compose -f docker-compose.prod.yml up -d --build
