@@ -828,6 +828,7 @@ export const KM: Record<string, string> = {
   "Order number, customer or phone": "លេខការបញ្ជាទិញ អតិថិជន ឬទូរស័ព្ទ",
   "Order refunded": "ការបញ្ជាទិញត្រូវបានសងប្រាក់",
   "Order {number}": "ការបញ្ជាទិញ {number}",
+  "Order {number} was paid by KHQR.": "ការបញ្ជាទិញ {number} ត្រូវបានបង់តាម KHQR រួចហើយ។",
   "Order {orderNumber}": "ការបញ្ជាទិញ {orderNumber}",
   "Ordered": "បានបញ្ជាទិញ",
   "ordered": "បានបញ្ជាទិញ",

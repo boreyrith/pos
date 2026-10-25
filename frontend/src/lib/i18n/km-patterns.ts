@@ -67,7 +67,7 @@ export const KM_PATTERNS: [RegExp, string][] = [
   [/^(.+?) invoice (.+?) is already recorded$/, "វិក្កយបត្រ $2 របស់ $1 ត្រូវបានកត់ត្រារួចហើយ"],
   [/^(.+?) is a service and has no stock to transfer$/, "$1 ជាសេវាកម្ម ហើយគ្មានស្តុកសម្រាប់ផ្ទេរទេ"],
   [/^(.+?) is a service: give its quantity in (.+?)$/, "$1 ជាសេវាកម្ម៖ សូមផ្តល់បរិមាណរបស់វាជា $2"],
-  [/^(.+?) is being paid by KHQR at another till$/, "$1 កំពុងត្រូវបានបង់តាម KHQR នៅបញ្ជរផ្សេង"],
+  [/^(.+?) is waiting for KHQR payment of order (.+?); finish or cancel that payment first$/, "$1 កំពុងរង់ចាំការទូទាត់ KHQR នៃការបញ្ជាទិញ $2 សូមបញ្ចប់ ឬបោះបង់ការទូទាត់នោះជាមុនសិន"],
   [/^(.+?) is charged per job, so its quantity must be a whole number$/, "$1 គិតថ្លៃតាមការងារ ដូច្នេះបរិមាណត្រូវតែជាចំនួនគត់"],
   [/^(.+?) is completing (.+?) at another till; take it over to continue here$/, "$1 កំពុងបញ្ចប់ $2 នៅបញ្ជរផ្សេង សូមយកមកធ្វើបន្តដើម្បីបន្តនៅទីនេះ"],
   [/^(.+?) is completing (.+?) at another till$/, "$1 កំពុងបញ្ចប់ $2 នៅបញ្ជរផ្សេង"],

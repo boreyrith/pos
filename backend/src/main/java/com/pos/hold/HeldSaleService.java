@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Limit;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -116,8 +117,8 @@ public class HeldSaleService {
     public List<HoldDto> list(AuthUser user, boolean closed) {
         Long branchId = branches.currentBranchId(user);
         var statuses = closed ? EnumSet.of(HoldStatus.COMPLETED, HoldStatus.VOIDED, HoldStatus.EXPIRED) : OPEN;
-        return holds.findByBranchIdAndStatusInOrderByUpdatedAtDesc(branchId, statuses).stream()
-                .limit(closed ? 100 : 500).map(h -> toDto(h, user)).toList();
+        return holds.findByBranchIdAndStatusInOrderByUpdatedAtDesc(branchId, statuses, Limit.of(closed ? 100 : 500)).stream()
+                .map(h -> toDto(h, user)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -164,10 +165,8 @@ public class HeldSaleService {
         if (h.getStatus() == HoldStatus.COMPLETED || h.getStatus() == HoldStatus.VOIDED) {
             throw ApiException.conflict(h.getHoldNumber() + " is already " + h.getStatus().name().toLowerCase());
         }
+        requireNoPendingPayment(h);
         if (h.getStatus() == HoldStatus.IN_USE && !lockedBy(h, user) && lockFresh(h)) {
-            if (h.getOrder() != null) {
-                throw ApiException.conflict(h.getHoldNumber() + " is being paid by KHQR at another till");
-            }
             if (!takeOver || !manager) {
                 throw new ApiException(HttpStatus.CONFLICT, h.getLockedBy().getFullName() + " is completing " + h.getHoldNumber()
                         + " at another till" + (manager ? "; take it over to continue here" : ""), "HOLD_IN_USE");
@@ -179,6 +178,8 @@ public class HeldSaleService {
         h.setLockedBy(users.getReferenceById(user.id()));
         h.setLockedAt(Instant.now());
         h.setUpdatedAt(Instant.now());
+        h.setClosedAt(null);
+        h.setClosedBy(null);
         Cart cart = read(h);
         List<String> warnings = changesSince(cart, h);
         audit.log(AuditAction.HELD_SALE_RESUMED, "HeldSale", h.getId(), "Resumed " + h.getHoldNumber()
@@ -240,6 +241,8 @@ public class HeldSaleService {
         if (!h.getBranch().getId().equals(order.getBranch().getId())) {
             throw ApiException.badRequest(h.getHoldNumber() + " belongs to another branch");
         }
+        // Charging again would make a second sale the customer may also pay.
+        requireNoPendingPayment(h);
         if (h.getStatus() == HoldStatus.IN_USE && !lockedBy(h, user) && lockFresh(h)) {
             throw ApiException.conflict(h.getLockedBy().getFullName() + " is completing " + h.getHoldNumber());
         }
@@ -278,12 +281,24 @@ public class HeldSaleService {
     @Transactional
     public int housekeeping() {
         Instant now = Instant.now();
+        Instant staleLock = now.minus(props.lockTimeout());
+        Instant stale = now.minus(props.expiry());
         int changed = 0;
-        for (HeldSale h : holds.findAbandonedLocks(now.minus(props.lockTimeout()))) {
+        // Each hold is locked and checked again, so a till resuming it at the same moment wins.
+        for (Long id : holds.findAbandonedLockIds(staleLock)) {
+            HeldSale h = holds.lockById(id).orElse(null);
+            if (h == null || h.getStatus() != HoldStatus.IN_USE || h.getOrder() != null
+                    || h.getLockedAt() == null || !h.getLockedAt().isBefore(staleLock)) {
+                continue;
+            }
             release(h);
             changed++;
         }
-        for (HeldSale h : holds.findByStatusAndUpdatedAtBefore(HoldStatus.HELD, now.minus(props.expiry()))) {
+        for (Long id : holds.findStaleHeldIds(stale)) {
+            HeldSale h = holds.lockById(id).orElse(null);
+            if (h == null || h.getStatus() != HoldStatus.HELD || !h.getUpdatedAt().isBefore(stale)) {
+                continue;
+            }
             h.setStatus(HoldStatus.EXPIRED);
             h.setClosedAt(now);
             audit.logAs(new AuditService.Actor(null, "system", h.getBranch().getId()), AuditAction.HELD_SALE_EXPIRED, "HeldSale",
@@ -362,6 +377,14 @@ public class HeldSaleService {
         }
         if (h.getOrder() != null) {
             throw ApiException.conflict(h.getHoldNumber() + " is waiting for a KHQR payment");
+        }
+    }
+
+    /** A hold sent to KHQR stays with that payment until it is paid, cancelled or expires. */
+    private static void requireNoPendingPayment(HeldSale h) {
+        if (h.getStatus() == HoldStatus.IN_USE && h.getOrder() != null) {
+            throw new ApiException(HttpStatus.CONFLICT, h.getHoldNumber() + " is waiting for KHQR payment of order "
+                    + h.getOrder().getOrderNumber() + "; finish or cancel that payment first", "HOLD_AWAITING_PAYMENT");
         }
     }
 

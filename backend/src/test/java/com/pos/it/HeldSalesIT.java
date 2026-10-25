@@ -154,11 +154,46 @@ class HeldSalesIT {
                 .query(Long.class).single()).isEqualTo(1);
         assertThat(send("POST", "/held-sales/" + id + "/resume", null, cashier).status()).isEqualTo(409);
         assertThat(send("POST", "/held-sales/" + id + "/resume", null, manager).status()).isEqualTo(200);
+        assertThat(jdbc.sql("SELECT closed_at IS NULL FROM held_sales WHERE id = ?").param(id).query(Boolean.class).single()).isTrue();
 
         // An abandoned lock is released after the lock timeout.
         jdbc.sql("UPDATE held_sales SET locked_at = NOW() - INTERVAL 2 HOUR WHERE id = ?").param(id).update();
         holds.housekeeping();
         assertThat(jdbc.sql("SELECT status FROM held_sales WHERE id = ?").param(id).query(String.class).single()).isEqualTo("HELD");
+    }
+
+    @Test
+    void aHoldWaitingForKhqrCannotBeChargedAgain() {
+        JsonNode p = product(9);
+        long id = hold(p, 1, null, cashier).get("id").asLong();
+        assertThat(send("POST", "/held-sales/" + id + "/resume", null, cashier).status()).isEqualTo(200);
+        var khqrSale = sale(p, 1, id, null);
+        khqrSale.put("paymentMethod", "KHQR");
+        Res pending = send("POST", "/orders", khqrSale, cashier);
+        assertThat(pending.status()).as(String.valueOf(pending.body())).isEqualTo(201);
+        assertThat(pending.body().get("status").asString()).isEqualTo("PENDING_PAYMENT");
+
+        // Same till (e.g. after a page reload): charging cash for the same hold is refused.
+        Res again = send("POST", "/orders", sale(p, 1, id, null), cashier);
+        assertThat(again.status()).isEqualTo(409);
+        assertThat(again.body().get("code").asString()).isEqualTo("HOLD_AWAITING_PAYMENT");
+
+        // Another till, after the lock has gone stale: still refused, even for a manager taking over.
+        jdbc.sql("UPDATE held_sales SET locked_at = NOW() - INTERVAL 2 HOUR WHERE id = ?").param(id).update();
+        Res other = send("POST", "/held-sales/" + id + "/resume?takeOver=true", null, manager);
+        assertThat(other.status()).isEqualTo(409);
+        assertThat(other.body().get("code").asString()).isEqualTo("HOLD_AWAITING_PAYMENT");
+        holds.housekeeping();
+        assertThat(jdbc.sql("SELECT status FROM held_sales WHERE id = ?").param(id).query(String.class).single()).isEqualTo("IN_USE");
+
+        // The KHQR payment completes the hold with the first order.
+        long paymentId = pending.body().get("payments").get(0).get("id").asLong();
+        assertThat(send("POST", "/payments/" + paymentId + "/simulate-paid", null, cashier).status()).isEqualTo(200);
+        JsonNode closed = jdbc.sql("SELECT status, order_id FROM held_sales WHERE id = ?").param(id)
+                .query((rs, n) -> JSON.createObjectNode().put("status", rs.getString(1)).put("orderId", rs.getLong(2))).single();
+        assertThat(closed.get("status").asString()).isEqualTo("COMPLETED");
+        assertThat(closed.get("orderId").asLong()).isEqualTo(pending.body().get("id").asLong());
+        assertThat(ids(get("/held-sales?closed=true", cashier).body())).contains(id);
     }
 
     private JsonNode hold(JsonNode p, int qty, String label, String token) {

@@ -89,6 +89,8 @@ interface SaleCart {
   note: string;
   /** The held sale this cart was resumed from; paying completes it, holding again updates it. */
   hold?: { id: number; number: string; label?: string | null } | null;
+  /** A KHQR order waiting to be paid for this cart; kept so a reload shows its QR code again. */
+  pendingOrderId?: number | null;
 }
 
 const emptyCart = (): SaleCart => ({ lines: [], discountType: "PERCENT", discountValue: "", customer: null, note: "" });
@@ -495,6 +497,7 @@ export function PosScreen() {
         clearSale(active);
         setStage({ kind: "done", order });
       } else {
+        updateCart((c) => ({ ...c, pendingOrderId: order.id }), active);
         setStage({ kind: "khqr", order, cart: active });
       }
     },
@@ -513,8 +516,37 @@ export function PosScreen() {
   );
   const onKhqrClosed = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["offerings"] });
-    setStage({ kind: "cart" });
-  }, [queryClient]);
+    setStage((s) => {
+      if (s.kind === "khqr") updateCart((c) => ({ ...c, pendingOrderId: null }), s.cart);
+      return { kind: "cart" };
+    });
+  }, [queryClient, updateCart]);
+
+  // After a reload, a cart may still have a KHQR payment waiting: show its QR code again rather than
+  // let it be charged a second time. If it was paid or cancelled meanwhile, settle the cart to match.
+  const resumedPaymentsKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (resumedPaymentsKey.current === saved.key) return;
+    resumedPaymentsKey.current = saved.key;
+    saved.carts.forEach((c, i) => {
+      if (!c.pendingOrderId) return;
+      api<Order>(`/orders/${c.pendingOrderId}`)
+        .then((order) => {
+          if (order.status === "PENDING_PAYMENT") {
+            setSaved((s) => ({ ...s, active: i }));
+            setStage({ kind: "khqr", order, cart: i });
+          } else if (order.status !== "CANCELLED") {
+            clearSale(i);
+            setNotice(translate("Order {number} was paid by KHQR.", { number: order.orderNumber }));
+          } else {
+            updateCart((cur) => ({ ...cur, pendingOrderId: null }), i);
+          }
+        })
+        .catch((e) => {
+          if (e instanceof ApiError && e.status === 404) updateCart((cur) => ({ ...cur, pendingOrderId: null }), i);
+        });
+    });
+  }, [saved.key, saved.carts, clearSale, updateCart]);
 
   const holdSale = useMutation({
     mutationFn: ({ label, note }: { label: string; note: string }) =>
