@@ -10,6 +10,7 @@ browser ──HTTPS──▶ caddy :443 ──▶ frontend :3000 ──/api─�
 ## What you need
 
 - A Linux server (or a shop PC) with Docker Engine 24+ and the Compose plugin. 2 CPU, 4 GB RAM and 20 GB disk is plenty for a few branches.
+  Install Docker with `curl -fsSL https://get.docker.com | sh`, **not** the Ubuntu snap (`snap install docker`): the snap can't read folders outside your home directory, and fails with `open /var/lib/snapd/void/docker-compose.prod.yml: no such file or directory`. If you have it, `snap remove --purge docker` first; `which docker` should then show `/usr/bin/docker`.
 - An address for it:
   - **On the internet:** a domain such as `pos.myshop.com` pointing at the server, with ports 80 and 443 reachable. Caddy gets a free Let's Encrypt certificate.
   - **Shop network only:** the server's fixed IP (e.g. `10.0.129.216`) or a local name. Caddy signs its own certificate; install its authority on each device once (below).
