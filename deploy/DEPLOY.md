@@ -62,30 +62,70 @@ docker compose -f docker-compose.prod.yml cp caddy:/data/caddy/pki/authorities/l
 
 Install `pos-root.crt` as a trusted root on each device: Windows, double-click > Install > Local Machine > Trusted Root Certification Authorities; macOS, Keychain Access > System > Always Trust; iPhone/iPad, AirDrop or email it, install the profile, then Settings > General > About > Certificate Trust Settings; Android, Settings > Security > Install certificate > CA.
 
-## Example: munita.virtual-assistant.space
+## Behind an existing nginx or Apache
+
+If the server already runs nginx or Apache on ports 80/443 (other sites), the POS runs without Caddy: the web app and API listen on this machine only (`127.0.0.1:3000` and `127.0.0.1:8081`), and your web server proxies the domains to them and handles HTTPS with certbot.
+
+`init-env.sh` asks about this and sets it up. For an existing `.env`, add these lines to it:
+
+```
+COMPOSE_FILE=docker-compose.prod.yml:docker-compose.behind-proxy.yml
+WEB_PORT=3000
+API_PORT=8081
+```
+
+`COMPOSE_FILE` makes plain `docker compose ...` use both files, so in this mode **leave out `-f docker-compose.prod.yml`** from the commands in this guide. If 3000 or 8081 is already taken on the server (`ss -ltnp | grep -E ':3000|:8081'`), pick free ports.
+
+### Example: munita.virtual-assistant.space
 
 Web app on `https://munita.virtual-assistant.space`, API on `https://api-munita.virtual-assistant.space`.
 
-1. At your DNS provider, add an **A record** for `munita` and one for `api-munita` under `virtual-assistant.space`, both pointing at the server's public IP. If you use Cloudflare, set them to **DNS only** (grey cloud) for the first start, so Let's Encrypt can reach the server.
-2. Open ports 80 and 443 on the server's firewall (`ufw allow 80,443/tcp`) and at any cloud firewall in front of it.
-3. In `deploy/.env`:
+1. **DNS:** an A record for `munita` and one for `api-munita` under `virtual-assistant.space`, both pointing at the server's public IP. On Cloudflare, "DNS only" (grey cloud) until the certificates are issued.
+2. **`deploy/.env`:**
    ```
    SITE_ADDRESS=munita.virtual-assistant.space
    API_ADDRESS=api-munita.virtual-assistant.space
-   TLS=you@example.com
+   COMPOSE_FILE=docker-compose.prod.yml:docker-compose.behind-proxy.yml
+   WEB_PORT=3000
+   API_PORT=8081
    ```
-   `TLS` must be an email address (Let's Encrypt), not `internal`, for public names.
-4. `docker compose -f docker-compose.prod.yml up -d --build`, then `docker compose -f docker-compose.prod.yml logs caddy` should show `certificate obtained successfully` for both names.
-5. Check from any computer: `https://munita.virtual-assistant.space` shows the sign-in page, and `https://api-munita.virtual-assistant.space` answers `{"status":"UP"...}`.
+3. **Start the POS:**
+   ```bash
+   docker compose up -d --build
+   docker compose ps          # backend and frontend "healthy"; there is no caddy
+   curl -s http://127.0.0.1:8081/api/actuator/health
+   ```
+4. **Web server site**, generated from `.env`:
+   - nginx:
+     ```bash
+     ./proxy-config.sh nginx > /etc/nginx/sites-available/pos
+     ln -s /etc/nginx/sites-available/pos /etc/nginx/sites-enabled/pos
+     nginx -t && systemctl reload nginx
+     ```
+   - Apache:
+     ```bash
+     a2enmod proxy proxy_http headers
+     ./proxy-config.sh apache > /etc/apache2/sites-available/pos.conf
+     a2ensite pos && apache2ctl configtest && systemctl reload apache2
+     ```
+5. **HTTPS** with certbot (it adds the certificates and the HTTP-to-HTTPS redirect to that site):
+   ```bash
+   certbot --nginx -d munita.virtual-assistant.space -d api-munita.virtual-assistant.space
+   ```
+   (`--apache` for Apache. Install certbot with `apt install certbot python3-certbot-nginx`, or `python3-certbot-apache`.)
+6. **Check:** `https://munita.virtual-assistant.space` shows the sign-in page; `https://api-munita.virtual-assistant.space` answers `{"status":"UP"...}`.
 
-## Settings in `.env`
+The web app's sign-in uses a secure cookie, so it works only over HTTPS: sign in after step 5.
+
+## Settings in `.env`## Settings in `.env`
 
 | Variable | Meaning |
 | --- | --- |
 | `SITE_ADDRESS` | Address people open: domain, IP or local name. |
 | `API_ADDRESS` | Optional separate address for the API, e.g. `api.pos.myshop.com`. Empty: the API is only reached through the web app. |
 | `TLS` | Your email for Let's Encrypt, or `internal`. |
-| `HTTP_PORT`, `HTTPS_PORT` | Published ports, default 80 and 443. |
+| `HTTP_PORT`, `HTTPS_PORT` | Ports Caddy publishes, default 80 and 443 (not used behind nginx/Apache). |
+| `COMPOSE_FILE`, `WEB_PORT`, `API_PORT` | Only behind your own nginx/Apache; see that section. |
 | `DB_PASSWORD`, `DB_ROOT_PASSWORD` | Database passwords. Only used inside Docker. Don't change after the first start (the database keeps the old one). |
 | `JWT_SECRET` | Signs sign-in tokens. Changing it signs everyone out. |
 | `SECRETS_KEY` | Encrypts the Bakong token stored in the app. If lost, enter the token again. |
@@ -151,6 +191,7 @@ Bakong tokens last 90 days; the page warns two weeks before expiry.
 - **`ECONNRESET`, `ETIMEDOUT`, `network aborted` or a Maven download error:** the server's internet connection dropped while downloading packages. Run the same `up -d --build` again; downloads already finished are kept, so each attempt gets further.
 - **`open /var/lib/snapd/void/...: no such file or directory`:** Docker is the snap version; see *What you need*.
 - **Browser shows a certificate error, or `logs caddy` shows `challenge failed` / `NXDOMAIN`:** the name doesn't point at this server yet, port 80 is blocked, or `TLS` is still `internal`. Fix it and run `docker compose -f docker-compose.prod.yml restart caddy`; Caddy retries by itself.
+- **`bind: address already in use` on port 80 or 443:** another web server (nginx, Apache) already uses them; see *Behind an existing nginx or Apache*.
 - **`.env already exists`:** setup was already done in this folder; the existing `.env` is kept.
 
 Keep one copy of the repository on the server (e.g. `/opt/pos`) and always run the commands from its `deploy` folder: each copy has its own `.env`, and so its own passwords.

@@ -13,7 +13,11 @@ pw() { openssl rand -hex 24; }
 
 printf 'Address people will open (e.g. pos.myshop.com, 10.0.129.216 or shop-pc.local): '; read -r site
 printf 'Separate address for the API, e.g. api.pos.myshop.com (leave empty if not needed): '; read -r apisite
-printf 'Email for Let'"'"'s Encrypt (leave empty for an internal certificate on a LAN): '; read -r email
+printf 'Does this server already run nginx or Apache on ports 80/443? [y/N]: '; read -r proxied
+case "$proxied" in
+  [yY]*) proxied=yes; email= ;;
+  *) proxied=; printf 'Email for Let'"'"'s Encrypt (leave empty for an internal certificate on a LAN): '; read -r email ;;
+esac
 printf 'Store name: '; read -r store
 printf 'First admin username [admin]: '; read -r admin; admin=${admin:-admin}
 adminpw=$(openssl rand -base64 12 | tr -d '\n/+=')
@@ -46,5 +50,16 @@ KHQR_MODE=SIMULATED
 BACKUP_EVERY_HOURS=24
 BACKUP_KEEP_DAYS=14
 ENV
+if [ -n "$proxied" ]; then
+  cat >> .env <<'ENV'
+
+# Behind your own nginx/Apache: no Caddy; the web app and API listen on this machine only.
+# Site configs: ./proxy-config.sh nginx|apache. Use plain "docker compose ..." (no -f) so both files apply.
+COMPOSE_FILE=docker-compose.prod.yml:docker-compose.behind-proxy.yml
+WEB_PORT=3000
+API_PORT=8081
+ENV
+fi
 echo
 echo "Wrote deploy/.env. First sign-in: ${admin} / ${adminpw}  (you'll be asked to choose a new password)"
+[ -z "$proxied" ] || echo "Next: docker compose up -d --build, then ./proxy-config.sh nginx (or apache); see DEPLOY.md."
