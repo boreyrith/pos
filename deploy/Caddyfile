@@ -1,8 +1,11 @@
-# HTTPS in front of the web app. SITE_ADDRESS is the address people type:
-#   pos.example.com      -> a real certificate from Let's Encrypt (set TLS to your email)
+# HTTPS for the web app (SITE_ADDRESS) and, optionally, the API on its own address (API_ADDRESS).
+#   pos.example.com              -> a real certificate from Let's Encrypt (set TLS to your email)
 #   10.0.129.216 / shop-pc.local -> a certificate from Caddy's own authority (TLS=internal);
-#                           install that authority on each till once (see DEPLOY.md) to remove the warning.
-{$SITE_ADDRESS} {
+#                                   install that authority on each till once (see DEPLOY.md).
+# The web app reaches the API through its own /api, so it works without API_ADDRESS; the API address
+# is for other programs (integrations, a mobile app). Its paths start with /api, like the web app's.
+
+(common) {
 	tls {$TLS}
 	encode zstd gzip
 	# Product pictures are up to 2 MB, the logo 512 KB.
@@ -15,5 +18,16 @@
 		Referrer-Policy strict-origin-when-cross-origin
 		-Server
 	}
+}
+
+{$SITE_ADDRESS} {
+	import common
 	reverse_proxy frontend:3000
+}
+
+# Without API_ADDRESS this only answers http://api.localhost, i.e. nothing from outside.
+{$API_ADDRESS:http://api.localhost} {
+	import common
+	redir / /api/actuator/health
+	reverse_proxy backend:8081
 }

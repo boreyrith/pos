@@ -3,16 +3,19 @@
 One server runs everything in Docker: the database, the API, the web app, Caddy for HTTPS, and a backup job. Only ports 80 and 443 are opened; the tills, tablets and phones open the site in a browser.
 
 ```
-browser ──HTTPS──▶ caddy :443 ──▶ frontend :3000 ──/api──▶ backend :8081 ──▶ mysql :3306
-                                                              backup ──────▶ mysql (daily dump to deploy/backups)
+browser ──HTTPS──▶ caddy :443 ─ SITE_ADDRESS ─▶ frontend :3000 ──/api──▶ backend :8081 ──▶ mysql :3306
+other programs ──▶ caddy :443 ─ API_ADDRESS ──────────────────────────▶ backend :8081
+                                                               backup ──────▶ mysql (daily dump to deploy/backups)
 ```
+
+The web app always reaches the API through its own `/api`, so sign-in stays on one site. `API_ADDRESS` is optional: it publishes the same API on its own address for integrations or a mobile app (paths start with `/api`, e.g. `https://api.pos.myshop.com/api/actuator/health`).
 
 ## What you need
 
 - A Linux server (or a shop PC) with Docker Engine 24+ and the Compose plugin. 2 CPU, 4 GB RAM and 20 GB disk is plenty for a few branches.
   Install Docker with `curl -fsSL https://get.docker.com | sh`, **not** the Ubuntu snap (`snap install docker`): the snap can't read folders outside your home directory, and fails with `open /var/lib/snapd/void/docker-compose.prod.yml: no such file or directory`. If you have it, `snap remove --purge docker` first; `which docker` should then show `/usr/bin/docker`.
 - An address for it:
-  - **On the internet:** a domain such as `pos.myshop.com` pointing at the server, with ports 80 and 443 reachable. Caddy gets a free Let's Encrypt certificate.
+  - **On the internet:** a domain such as `pos.myshop.com` pointing at the server, with ports 80 and 443 reachable. Caddy gets a free Let's Encrypt certificate. For a separate API address, point that name (e.g. `api.pos.myshop.com`) at the same server too.
   - **Shop network only:** the server's fixed IP (e.g. `10.0.129.216`) or a local name. Caddy signs its own certificate; install its authority on each device once (below).
 - `git` and `openssl` on the server.
 
@@ -29,7 +32,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 If the repository is private, the server needs read access: a [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys) (clone with `git@github.com:boreyrith/pos.git`) or a fine-grained token with read-only access to this repository.
 
-`init-env.sh` asks for the address, an email (for Let's Encrypt; leave empty on a LAN), the store name and the admin username. It writes `deploy/.env` with random database passwords, signing key and secrets key, and prints the first admin's password. **Copy that `.env` somewhere safe** (a password manager): it is needed to restore a backup on a new server.
+`init-env.sh` asks for the address, an optional separate API address, an email (for Let's Encrypt; leave empty on a LAN), the store name and the admin username. It writes `deploy/.env` with random database passwords, signing key and secrets key, and prints the first admin's password. **Copy that `.env` somewhere safe** (a password manager): it is needed to restore a backup on a new server.
 
 The first build takes 5-10 minutes. Check that everything is up:
 
@@ -59,11 +62,28 @@ docker compose -f docker-compose.prod.yml cp caddy:/data/caddy/pki/authorities/l
 
 Install `pos-root.crt` as a trusted root on each device: Windows, double-click > Install > Local Machine > Trusted Root Certification Authorities; macOS, Keychain Access > System > Always Trust; iPhone/iPad, AirDrop or email it, install the profile, then Settings > General > About > Certificate Trust Settings; Android, Settings > Security > Install certificate > CA.
 
+## Example: munita.virtual-assistant.space
+
+Web app on `https://munita.virtual-assistant.space`, API on `https://api-munita.virtual-assistant.space`.
+
+1. At your DNS provider, add an **A record** for `munita` and one for `api-munita` under `virtual-assistant.space`, both pointing at the server's public IP. If you use Cloudflare, set them to **DNS only** (grey cloud) for the first start, so Let's Encrypt can reach the server.
+2. Open ports 80 and 443 on the server's firewall (`ufw allow 80,443/tcp`) and at any cloud firewall in front of it.
+3. In `deploy/.env`:
+   ```
+   SITE_ADDRESS=munita.virtual-assistant.space
+   API_ADDRESS=api-munita.virtual-assistant.space
+   TLS=you@example.com
+   ```
+   `TLS` must be an email address (Let's Encrypt), not `internal`, for public names.
+4. `docker compose -f docker-compose.prod.yml up -d --build`, then `docker compose -f docker-compose.prod.yml logs caddy` should show `certificate obtained successfully` for both names.
+5. Check from any computer: `https://munita.virtual-assistant.space` shows the sign-in page, and `https://api-munita.virtual-assistant.space` answers `{"status":"UP"...}`.
+
 ## Settings in `.env`
 
 | Variable | Meaning |
 | --- | --- |
 | `SITE_ADDRESS` | Address people open: domain, IP or local name. |
+| `API_ADDRESS` | Optional separate address for the API, e.g. `api.pos.myshop.com`. Empty: the API is only reached through the web app. |
 | `TLS` | Your email for Let's Encrypt, or `internal`. |
 | `HTTP_PORT`, `HTTPS_PORT` | Published ports, default 80 and 443. |
 | `DB_PASSWORD`, `DB_ROOT_PASSWORD` | Database passwords. Only used inside Docker. Don't change after the first start (the database keeps the old one). |
@@ -130,6 +150,7 @@ Bakong tokens last 90 days; the page warns two weeks before expiry.
 
 - **`ECONNRESET`, `ETIMEDOUT`, `network aborted` or a Maven download error:** the server's internet connection dropped while downloading packages. Run the same `up -d --build` again; downloads already finished are kept, so each attempt gets further.
 - **`open /var/lib/snapd/void/...: no such file or directory`:** Docker is the snap version; see *What you need*.
+- **Browser shows a certificate error, or `logs caddy` shows `challenge failed` / `NXDOMAIN`:** the name doesn't point at this server yet, port 80 is blocked, or `TLS` is still `internal`. Fix it and run `docker compose -f docker-compose.prod.yml restart caddy`; Caddy retries by itself.
 - **`.env already exists`:** setup was already done in this folder; the existing `.env` is kept.
 
 Keep one copy of the repository on the server (e.g. `/opt/pos`) and always run the commands from its `deploy` folder: each copy has its own `.env`, and so its own passwords.
