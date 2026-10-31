@@ -85,6 +85,10 @@ For demos and end-to-end testing, [`scripts/demo-data`](scripts/demo-data/README
 - API docs (Swagger UI): http://localhost:8081/api/docs
 - The web app sends `/api/*` to the backend through a Next.js route ([`src/app/api/[...path]/route.ts`](frontend/src/app/api/[...path]/route.ts)), so the browser sees a single origin. Set `API_URL` if the backend isn't at `http://localhost:8081`.
 
+## Mobile app
+
+[`mobile/`](mobile/README.md) is a Flutter cashier app for iOS and Android (selling, cash and KHQR, held sales, orders, English and Khmer) that uses this backend as it is.
+
 ## Run everything in Docker
 
 ```bash

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="64 -58 1100 1100">
+  <!-- The web app's calculator icon (frontend/src/app/icon.svg) in the brand blue on a white tile. -->
+  <rect x="64" y="-58" width="1100" height="1100" fill="#ffffff" />
+  <g fill="none" stroke="#1d5fb3" stroke-width="48" stroke-linecap="round">
+    <rect x="269" y="120" width="597" height="744" rx="44" />
+    <rect x="360" y="215" width="408" height="193" rx="26" />
+    <line x1="960" y1="336" x2="960" y2="797" />
+    <g fill="#1d5fb3" stroke="none">
+      <rect x="334" y="480" width="123" height="72" rx="17" />
+      <rect x="502" y="480" width="123" height="72" rx="17" />
+      <rect x="670" y="480" width="123" height="72" rx="17" />
+      <rect x="334" y="600" width="123" height="72" rx="17" />
+      <rect x="502" y="600" width="123" height="72" rx="17" />
+      <rect x="670" y="600" width="123" height="72" rx="17" />
+      <rect x="334" y="720" width="123" height="72" rx="17" />
+      <rect x="502" y="720" width="123" height="72" rx="17" />
+      <rect x="670" y="720" width="123" height="72" rx="17" />
+    </g>
+  </g>
+</svg>
