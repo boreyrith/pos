@@ -50,6 +50,7 @@ class Cart {
     this.note = '',
     this.hold,
     this.pendingOrderId,
+    this.couponCode,
   });
 
   final List<CartLine> lines;
@@ -68,6 +69,9 @@ class Cart {
   /// A KHQR order created from this cart and still waiting to be paid: it must not be charged again.
   final int? pendingOrderId;
 
+  /// A coupon code the customer gave; the server checks it and works out what it takes off.
+  final String? couponCode;
+
   bool get isEmpty => lines.isEmpty;
   int get itemCount => lines.fold(0, (n, l) => n + l.quantity);
 
@@ -82,6 +86,8 @@ class Cart {
     bool clearHold = false,
     int? pendingOrderId,
     bool clearPending = false,
+    String? couponCode,
+    bool clearCoupon = false,
   }) =>
       Cart(
         lines: lines ?? this.lines,
@@ -91,6 +97,7 @@ class Cart {
         note: note ?? this.note,
         hold: clearHold ? null : hold ?? this.hold,
         pendingOrderId: clearPending ? null : pendingOrderId ?? this.pendingOrderId,
+        couponCode: clearCoupon ? null : couponCode ?? this.couponCode,
       );
 
   Map<String, Object?> toJson() => {
@@ -102,6 +109,14 @@ class Cart {
         'holdId': hold?.id,
         'holdNumber': hold?.holdNumber,
         'pendingOrderId': pendingOrderId,
+        'couponCode': couponCode,
+      };
+
+  /// What the server prices: the lines, the customer and the coupon (the promotion preview's key).
+  Map<String, Object?> promotionRequest() => {
+        'items': [for (final l in lines) l.toPayload()],
+        'customerId': customer?.id,
+        'couponCode': couponCode,
       };
 }
 
@@ -154,6 +169,7 @@ class CartNotifier extends Notifier<Cart> {
         note: j['note'] as String? ?? '',
         hold: j['holdId'] == null ? null : _heldRef(j['holdId'] as int, j['holdNumber'] as String? ?? ''),
         pendingOrderId: j['pendingOrderId'] as int?,
+        couponCode: j['couponCode'] as String?,
       );
     } catch (_) {
       // An unreadable saved cart is dropped.
@@ -215,6 +231,9 @@ class CartNotifier extends Notifier<Cart> {
 
   void setNote(String note) => _save(state.copyWith(note: note));
 
+  void setCoupon(String? code) =>
+      _save(code == null || code.trim().isEmpty ? state.copyWith(clearCoupon: true) : state.copyWith(couponCode: code.trim().toUpperCase()));
+
   void setPendingOrder(int? orderId) =>
       _save(orderId == null ? state.copyWith(clearPending: true) : state.copyWith(pendingOrderId: orderId));
 
@@ -249,13 +268,59 @@ class CartNotifier extends Notifier<Cart> {
 
 final cartProvider = NotifierProvider<CartNotifier, Cart>(CartNotifier.new);
 
+/// The promotion preview, with the request it was for ([PromotionState.key]).
+class PromotionState {
+  const PromotionState(this.key, this.offeringIds, this.preview);
+
+  final String key;
+  final List<int> offeringIds;
+  final PromotionPreview preview;
+}
+
+/// The server's promotions for the cart as it is: automatic promotions and the coupon. Nothing is
+/// reserved until checkout, where the server works them out again.
+final promotionsProvider = FutureProvider.autoDispose<PromotionState?>((ref) async {
+  final cart = ref.watch(cartProvider);
+  if (cart.isEmpty) return null;
+  // Wait for quantities to stop changing; a newer cart replaces this request.
+  await Future<void>.delayed(const Duration(milliseconds: 250));
+  if (!ref.mounted) return null;
+  final request = cart.promotionRequest();
+  final preview = await ref.read(apiProvider).post('/promotions/evaluate',
+      (j) => PromotionPreview.fromJson(j as Map<String, dynamic>), json: request);
+  return PromotionState(jsonEncode(request), [for (final l in cart.lines) l.offering.id], preview);
+});
+
+/// Each line's promotion name, when its promotion took something off (same order as the lines).
+final linePromotionNamesProvider = Provider.autoDispose<List<String?>>((ref) {
+  final cart = ref.watch(cartProvider);
+  final promo = ref.watch(promotionsProvider).value;
+  if (promo == null || promo.preview.lines.length != cart.lines.length) return List.filled(cart.lines.length, null);
+  return [for (final l in promo.preview.lines) l.amount > 0 ? l.name : null];
+});
+
+/// True when the promotions shown are the ones for the cart as it is now, so the total charged is
+/// the total shown. If they can't be loaded (offline), the server still decides at checkout.
+final promotionsReadyProvider = Provider.autoDispose<bool>((ref) {
+  final cart = ref.watch(cartProvider);
+  if (cart.isEmpty) return true;
+  final p = ref.watch(promotionsProvider);
+  if (p.hasError) return true;
+  return !p.isLoading && p.value?.key == jsonEncode(cart.promotionRequest());
+});
+
 /// The cart's totals, worked out exactly as the server will charge them.
 final cartTotalsProvider = Provider<PricingTotals?>((ref) {
   final cart = ref.watch(cartProvider);
   final store = ref.watch(storeProvider).value;
   if (store == null) return null;
+  // Until a new preview arrives, lines keep what their promotion last took off, while the lines
+  // are still the same entries in the same order.
+  final promo = ref.watch(promotionsProvider).value;
+  final ids = [for (final l in cart.lines) l.offering.id];
+  final usable = promo != null && promo.offeringIds.length == ids.length && Iterable.generate(ids.length).every((i) => promo.offeringIds[i] == ids[i]);
   return calculateTotals([
-    for (final l in cart.lines)
+    for (final (i, l) in cart.lines.indexed)
       PricingLine(
         unitPrice: l.offering.price,
         quantity: l.quantity,
@@ -272,6 +337,8 @@ final cartTotalsProvider = Provider<PricingTotals?>((ref) {
         ),
         discountType: l.hasDiscount ? l.discountType : null,
         discountValue: l.hasDiscount ? l.discountValue : null,
+        promoDiscount: usable ? promo.preview.lines[i].amount : 0,
       ),
-  ], cart.discountValue > 0 ? cart.discountType : null, cart.discountValue);
+  ], cart.discountValue > 0 ? cart.discountType : null, cart.discountValue,
+      orderPromo: usable ? promo.preview.orderDiscount : 0);
 });

@@ -20,6 +20,9 @@ No backend changes are needed.
   - Item discounts, for roles with "Discount items", within the role's limit.
   - Order discount (% or amount), customer, and note.
   - The cart is saved on the device, per user.
+- **Promotions and coupons:** the server's automatic promotions show on each line and in the
+  totals as the cart changes, and a coupon code can be entered on the cart. Charging waits until
+  they match the cart. (Using loyalty points is on the web sell screen only for now.)
 - **Totals:** worked out exactly as the server charges them. `lib/core/pricing.dart` mirrors
   `PricingCalculator.java` and is tested against the same `pricing-cases.json`. If prices
   change before checkout, the server refuses the sale and the app reloads today's prices.

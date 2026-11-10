@@ -88,7 +88,12 @@ class CartView extends ConsumerWidget {
             : ListView.separated(
                 itemCount: cart.lines.length,
                 separatorBuilder: (_, _) => const Divider(height: 1, indent: 12, endIndent: 12),
-                itemBuilder: (context, i) => _LineTile(index: i, line: cart.lines[i], split: totals?.lines[i], fmt: fmt),
+                itemBuilder: (context, i) => _LineTile(
+                    index: i,
+                    line: cart.lines[i],
+                    split: totals?.lines[i],
+                    promotion: ref.watch(linePromotionNamesProvider).elementAtOrNull(i),
+                    fmt: fmt),
               ),
       ),
       if (!cart.isEmpty && totals != null) _Totals(cart: cart, totals: totals, fmt: fmt),
@@ -147,11 +152,14 @@ void _closeIfOwnPage(BuildContext context) {
 }
 
 class _LineTile extends ConsumerWidget {
-  const _LineTile({required this.index, required this.line, required this.split, required this.fmt});
+  const _LineTile({required this.index, required this.line, required this.split, required this.promotion, required this.fmt});
 
   final int index;
   final CartLine line;
   final LineSplit? split;
+
+  /// The name of the promotion on this line, when one took something off it.
+  final String? promotion;
   final String Function(double) fmt;
 
   @override
@@ -174,6 +182,11 @@ class _LineTile extends ConsumerWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(o.displayName(currentLang), maxLines: 2, overflow: TextOverflow.ellipsis),
               Text(detail, style: TextStyle(fontSize: 12, color: line.hasDiscount ? Brand.success : scheme.outline)),
+              if (promotion != null && (split?.promoDiscount ?? 0) > 0)
+                Text('$promotion  −${fmt(split!.promoDiscount)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Brand.success, fontWeight: FontWeight.w600)),
             ]),
           ),
           _qtyButton(Icons.remove, () => ref.read(cartProvider.notifier).setQuantity(index, line.quantity - 1)),
@@ -182,7 +195,7 @@ class _LineTile extends ConsumerWidget {
           SizedBox(
             width: 76,
             child: Text(
-              fmt((split?.total ?? 0) - (split?.itemDiscount ?? 0)),
+              fmt((split?.total ?? 0) - (split?.promoDiscount ?? 0) - (split?.itemDiscount ?? 0)),
               textAlign: TextAlign.right,
               style: const TextStyle(fontWeight: FontWeight.w600, fontFeatures: [FontFeature.tabularFigures()]),
             ),
@@ -209,6 +222,8 @@ class _Totals extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final promo = ref.watch(promotionsProvider).value;
+    final ready = ref.watch(promotionsReadyProvider);
     return Material(
       color: scheme.surfaceContainerLow,
       child: SafeArea(
@@ -217,7 +232,17 @@ class _Totals extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             AmountRow(t('Subtotal'), fmt(totals.subtotal)),
+            if (totals.promoDiscount > 0) AmountRow(t('Promotions'), '−${fmt(totals.promoDiscount)}', color: Brand.success),
             if (totals.itemDiscount > 0) AmountRow(t('Item discounts'), '−${fmt(totals.itemDiscount)}', color: Brand.success),
+            if (totals.orderPromoDiscount > 0)
+              AmountRow(
+                  [
+                    for (final a in promo?.preview.applied ?? const <AppliedPromotion>[])
+                      if (a.kind == 'ORDER_DISCOUNT') a.code == null ? a.name : '${a.name} (${a.code})'
+                  ].join(', ').ifEmpty(t('Order promotion')),
+                  '−${fmt(totals.orderPromoDiscount)}',
+                  color: Brand.success),
+            _CouponRow(cart: cart, result: promo?.preview.coupon, checking: !ready),
             InkWell(
               onTap: () => _editDiscount(context, ref),
               child: AmountRow(
@@ -250,9 +275,10 @@ class _Totals extends ConsumerWidget {
               const SizedBox(width: 10),
               Expanded(
                 flex: 2,
+                // Waits for the promotions to catch up with the cart, so the total charged is the total shown.
                 child: FilledButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentScreen())),
-                  child: Text('${t('Charge')} ${fmt(totals.total)}', style: const TextStyle(fontSize: 16)),
+                  onPressed: ready ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentScreen())) : null,
+                  child: Text(ready ? '${t('Charge')} ${fmt(totals.total)}' : t('Checking…'), style: const TextStyle(fontSize: 16)),
                 ),
               ),
             ]),
@@ -348,3 +374,76 @@ class _Totals extends ConsumerWidget {
   }
 }
 
+
+extension on String {
+  String ifEmpty(String other) => isEmpty ? other : this;
+}
+
+/// A coupon the customer gives: tap to enter one; shows whether it applied, or why not.
+class _CouponRow extends ConsumerWidget {
+  const _CouponRow({required this.cart, required this.result, required this.checking});
+
+  final Cart cart;
+  final CouponResult? result;
+  final bool checking;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final code = cart.couponCode;
+    if (code == null) {
+      return InkWell(
+        onTap: () => _enter(context, ref),
+        child: AmountRow('${t('Add coupon code')}  ✎', '', color: scheme.primary),
+      );
+    }
+    final ok = result != null && result!.applied && result!.code.toUpperCase() == code;
+    final status = checking ? t('Checking…') : ok ? t('Applied') : (result?.message == null ? '' : translateServer(result!.message!));
+    return InkWell(
+      onTap: () => _enter(context, ref),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(children: [
+          Icon(Icons.confirmation_number_outlined, size: 18, color: ok ? Brand.success : scheme.error),
+          const SizedBox(width: 6),
+          Text(code, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w600)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(status,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: checking ? scheme.outline : ok ? Brand.success : scheme.error)),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            tooltip: t('Remove coupon'),
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: () => ref.read(cartProvider.notifier).setCoupon(null),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _enter(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: cart.couponCode ?? '');
+    final code = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t('Coupon code')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          maxLength: 40,
+          onSubmitted: (v) => Navigator.pop(context, v.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(t('Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: Text(t('Apply'))),
+        ],
+      ),
+    );
+    if (code != null) ref.read(cartProvider.notifier).setCoupon(code);
+  }
+}

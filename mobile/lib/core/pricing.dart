@@ -25,6 +25,7 @@ class PricingLine {
     required this.tax,
     this.discountType,
     this.discountValue,
+    this.promoDiscount,
   });
 
   final double unitPrice;
@@ -34,9 +35,12 @@ class PricingLine {
   final double? hours;
   final TaxKey tax;
 
-  /// An item discount on this line: PERCENT or AMOUNT.
+  /// An item discount on this line: PERCENT or AMOUNT, of the line after its promotion.
   final String? discountType;
   final double? discountValue;
+
+  /// What a promotion takes off the line, in money, as the server worked it out.
+  final double? promoDiscount;
 }
 
 class TaxLine {
@@ -49,12 +53,13 @@ class TaxLine {
   final double tax;
 }
 
-/// A line's share of the order: [discount] is its item discount plus its share of the order
-/// discount; [net] is after both without tax; [paid] = net + tax.
+/// A line's share of the order: [discount] is its promotion and item discount plus its share of
+/// the order-level discounts; [net] is after all of them without tax; [paid] = net + tax.
 class LineSplit {
-  const LineSplit(this.total, this.itemDiscount, this.discount, this.net, this.tax, this.paid);
+  const LineSplit(this.total, this.itemDiscount, this.discount, this.net, this.tax, this.paid, [this.promoDiscount = 0]);
 
   final double total;
+  final double promoDiscount;
   final double itemDiscount;
   final double discount;
   final double net;
@@ -74,16 +79,28 @@ class PricingTotals {
     required this.lines,
     required this.taxableAmount,
     required this.nonTaxableAmount,
+    this.promoDiscount = 0,
+    this.orderPromoDiscount = 0,
+    this.pointsDiscount = 0,
   });
 
   /// Before any discount.
   final double subtotal;
 
+  /// Promotions on all lines.
+  final double promoDiscount;
+
   /// Item discounts on all lines.
   final double itemDiscount;
 
-  /// The order discount, on the subtotal after item discounts.
+  /// The order promotion (coupon or automatic).
+  final double orderPromoDiscount;
+
+  /// The cashier's order discount, on what is left after the order promotion.
   final double discount;
+
+  /// Loyalty points used, in money.
+  final double pointsDiscount;
   final double taxAdded;
   final double taxIncluded;
   final double total;
@@ -98,7 +115,7 @@ class PricingTotals {
 /// What lines outside the tax (No VAT, or a type not in scope) are labelled. Same as TaxService.NOT_TAXED.
 const notTaxed = 'Not taxed';
 
-/// The tax a catalog entry is charged under. Mirrors TaxService.keyFor: nothing under No VAT or
+/// The tax a catalog entry is charged under. Mirrors OfferingTaxes.keyFor: nothing under No VAT or
 /// for types outside the scope; the default rate is named after the store's tax label; an exempt
 /// (0%) rate keeps its name; included only in VAT included mode.
 TaxKey taxKeyFor({
@@ -138,9 +155,14 @@ double _discountCents(double cents, String? type, double? value) {
   return type == 'PERCENT' ? _roundCents(cents * math.min(value, 100) / 100) : math.min(_toCents(value), cents);
 }
 
-/// The money an item discount takes off a line.
-double itemDiscountOf(PricingLine l) =>
-    _discountCents(_lineCents(l.unitPrice, l.quantity, l.hours), l.discountType, l.discountValue) / 100;
+/// A promotion's cents on a line: never more than the line.
+double _promoCents(PricingLine l, double gross) => math.min(math.max(0, _toCents(l.promoDiscount ?? 0)), gross);
+
+/// The money an item discount takes off a line (worked out on the line after its promotion).
+double itemDiscountOf(PricingLine l) {
+  final gross = _lineCents(l.unitPrice, l.quantity, l.hours);
+  return _discountCents(gross - _promoCents(l, gross), l.discountType, l.discountValue) / 100;
+}
 
 class _Group {
   _Group(this.key);
@@ -150,16 +172,23 @@ class _Group {
   final members = <int>[];
 }
 
-/// Mirrors PricingCalculator.java and pricing.ts: item discounts first, then the order discount
-/// shared over tax groups by value, then per group an included tax is taken out (amount x r / (1 + r))
+/// Mirrors PricingCalculator.java and pricing.ts: each line's promotion, then its item discount;
+/// at order level the order promotion, the cashier's order discount on what is left, then loyalty
+/// points ([orderPromo] and [points] are money, each capped at what is left before it), shared
+/// over tax groups by value; then per group an included tax is taken out (amount x r / (1 + r))
 /// and an added tax goes on top (amount x r); each group's discount and tax are shared over its
 /// lines by value, the last line taking the leftover cent.
-PricingTotals calculateTotals(List<PricingLine> lines, String? discountType, double discountValue) {
+PricingTotals calculateTotals(List<PricingLine> lines, String? discountType, double discountValue,
+    {double orderPromo = 0, double points = 0}) {
   final groups = <TaxKey, _Group>{};
   final gross = [for (final l in lines) _lineCents(l.unitPrice, l.quantity, l.hours)];
-  final itemOff = [for (var i = 0; i < lines.length; i++) _discountCents(gross[i], lines[i].discountType, lines[i].discountValue)];
-  final cents = [for (var i = 0; i < lines.length; i++) gross[i] - itemOff[i]];
+  final promoOff = [for (var i = 0; i < lines.length; i++) _promoCents(lines[i], gross[i])];
+  final itemOff = [
+    for (var i = 0; i < lines.length; i++) _discountCents(gross[i] - promoOff[i], lines[i].discountType, lines[i].discountValue)
+  ];
+  final cents = [for (var i = 0; i < lines.length; i++) gross[i] - promoOff[i] - itemOff[i]];
   final grossSubtotal = gross.fold<double>(0, (n, c) => n + c);
+  final promoDiscount = promoOff.fold<double>(0, (n, c) => n + c);
   final itemDiscount = itemOff.fold<double>(0, (n, c) => n + c);
   var subtotal = 0.0;
   for (var i = 0; i < lines.length; i++) {
@@ -169,7 +198,12 @@ PricingTotals calculateTotals(List<PricingLine> lines, String? discountType, dou
     g.members.add(i);
   }
 
-  final discount = _discountCents(subtotal, discountType, discountValue);
+  double capped(double amount, double most) => amount > 0 && most > 0 ? math.min(_toCents(amount), most) : 0;
+  final orderPromoCents = capped(orderPromo, subtotal);
+  final manual = _discountCents(subtotal - orderPromoCents, discountType, discountValue);
+  final pointsCents = capped(points, subtotal - orderPromoCents - manual);
+  // Everything taken off at order level, shared over the tax groups and lines together.
+  final discount = orderPromoCents + manual + pointsCents;
 
   final taxes = <TaxLine>[];
   final splits = List<LineSplit?>.filled(lines.length, null);
@@ -208,14 +242,18 @@ PricingTotals calculateTotals(List<PricingLine> lines, String? discountType, dou
       dLeft -= d;
       tLeft -= lt;
       final net = g.key.included ? t - d - lt : t - d;
-      splits[j] = LineSplit(gross[j] / 100, itemOff[j] / 100, (itemOff[j] + d) / 100, net / 100, lt / 100, (net + lt) / 100);
+      splits[j] = LineSplit(gross[j] / 100, itemOff[j] / 100, (promoOff[j] + itemOff[j] + d) / 100, net / 100, lt / 100,
+          (net + lt) / 100, promoOff[j] / 100);
     }
   }
 
   return PricingTotals(
     subtotal: grossSubtotal / 100,
+    promoDiscount: promoDiscount / 100,
     itemDiscount: itemDiscount / 100,
-    discount: discount / 100,
+    orderPromoDiscount: orderPromoCents / 100,
+    discount: manual / 100,
+    pointsDiscount: pointsCents / 100,
     taxAdded: added / 100,
     taxIncluded: included / 100,
     total: (subtotal - discount + added) / 100,

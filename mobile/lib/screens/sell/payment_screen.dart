@@ -76,6 +76,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'changeCurrency': _method == 'CASH' ? _changeCode : null,
         'khqrCurrency': _method == 'KHQR' ? _khqrCode : null,
         'heldSaleId': cart.hold?.id,
+        'couponCode': cart.couponCode,
         // The server refuses the sale if its total differs from what the cashier was shown.
         'expectedTotal': double.parse(total.toStringAsFixed(2)),
       });
@@ -92,6 +93,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
     } on ApiError catch (e) {
       if (e.code == 'PRICES_CHANGED') {
+        // A promotion may have ended or run out: work them out again too.
+        ref.invalidate(promotionsProvider);
         // Prices moved since the cart was built: load today's and let the cashier check before charging.
         final dropped = await ref.read(cartProvider.notifier).refreshPrices().catchError((_) => <String>[]);
         if (!mounted) return;

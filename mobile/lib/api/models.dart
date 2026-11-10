@@ -693,3 +693,56 @@ class ResumedHold {
     );
   }
 }
+
+/// What promotions take off a cart, from POST /promotions/evaluate: per line (same order), at
+/// order level, and what a coupon code did.
+class PromotionPreview {
+  PromotionPreview({required this.lines, required this.orderDiscount, required this.applied, this.coupon});
+
+  final List<LinePromotion> lines;
+  final double orderDiscount;
+  final List<AppliedPromotion> applied;
+  final CouponResult? coupon;
+
+  factory PromotionPreview.fromJson(Map<String, dynamic> j) => PromotionPreview(
+        lines: [
+          for (final l in (j['lines'] as List).cast<Map<String, dynamic>>())
+            LinePromotion((l['promoDiscount'] as num).toDouble(), l['promotionName'] as String?)
+        ],
+        orderDiscount: (j['orderDiscount'] as num).toDouble(),
+        applied: [
+          for (final a in (j['applied'] as List).cast<Map<String, dynamic>>())
+            AppliedPromotion(a['name'] as String, a['code'] as String?, a['kind'] as String, (a['amount'] as num).toDouble())
+        ],
+        coupon: j['coupon'] == null
+            ? null
+            : CouponResult(j['coupon']['code'] as String, j['coupon']['applied'] as bool, j['coupon']['message'] as String?),
+      );
+}
+
+class LinePromotion {
+  const LinePromotion(this.amount, this.name);
+
+  final double amount;
+  final String? name;
+}
+
+class AppliedPromotion {
+  const AppliedPromotion(this.name, this.code, this.kind, this.amount);
+
+  final String name;
+  final String? code;
+
+  /// ITEM_DISCOUNT, BUY_X_GET_Y or ORDER_DISCOUNT.
+  final String kind;
+  final double amount;
+}
+
+/// [message] says why the code took nothing; null when it applied.
+class CouponResult {
+  const CouponResult(this.code, this.applied, this.message);
+
+  final String code;
+  final bool applied;
+  final String? message;
+}

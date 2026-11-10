@@ -26,10 +26,18 @@ void main() {
             ),
             discountType: l['discountType'] as String?,
             discountValue: _n(l['discountValue']),
+            promoDiscount: _n(l['promoDiscount']),
           ),
       ];
-      final t = calculateTotals(lines, c['discountType'] as String?, _n(c['discountValue']) ?? 0);
+      final t = calculateTotals(lines, c['discountType'] as String?, _n(c['discountValue']) ?? 0,
+          orderPromo: _n(c['orderPromo']) ?? 0, points: _n(c['points']) ?? 0);
       final e = c['expected'] as Map<String, dynamic>;
+      // Promotion and points cases also pin down each layer.
+      if (e.containsKey('promoDiscount')) {
+        expect(t.promoDiscount, _n(e['promoDiscount']), reason: 'promoDiscount');
+        expect(t.orderPromoDiscount, _n(e['orderPromoDiscount']), reason: 'orderPromoDiscount');
+        expect(t.pointsDiscount, _n(e['pointsDiscount']), reason: 'pointsDiscount');
+      }
       expect(t.subtotal, _n(e['subtotal']), reason: 'subtotal');
       expect(t.itemDiscount, _n(e['itemDiscount']) ?? 0, reason: 'itemDiscount');
       expect(t.discount, _n(e['discount']), reason: 'discount');
@@ -42,6 +50,9 @@ void main() {
       for (var i = 0; i < el.length; i++) {
         expect(t.lines[i].total, _n(el[i]['total']), reason: 'line $i total');
         expect(t.lines[i].discount, _n(el[i]['discount']), reason: 'line $i discount');
+        if (el[i].containsKey('promoDiscount')) {
+          expect(t.lines[i].promoDiscount, _n(el[i]['promoDiscount']), reason: 'line $i promoDiscount');
+        }
         expect(t.lines[i].net, _n(el[i]['net']), reason: 'line $i net');
         expect(t.lines[i].tax, _n(el[i]['tax']), reason: 'line $i tax');
         expect(t.lines[i].paid, _n(el[i]['paid']), reason: 'line $i paid');
