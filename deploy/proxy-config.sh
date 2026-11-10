@@ -22,7 +22,10 @@ server {
     # Product pictures are up to 2 MB, the logo 512 KB.
     client_max_body_size 5m;
     add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
+    # The camera is for scanning barcodes; nothing else the browser offers is used.
+    add_header Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=(), usb=()" always;
 
     location / {
         proxy_pass http://127.0.0.1:$web_port;
@@ -71,7 +74,12 @@ apache)
     # Product pictures are up to 2 MB, the logo 512 KB.
     LimitRequestBody 5242880
     Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options SAMEORIGIN
     Header always set Referrer-Policy strict-origin-when-cross-origin
+    # The camera is for scanning barcodes; nothing else the browser offers is used.
+    Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=(), usb=()"
+    # The client's address, overwriting any X-Real-IP the client sent (sign-in limits rely on it).
+    RequestHeader set X-Real-IP "%{REMOTE_ADDR}s"
     ProxyPass / http://127.0.0.1:$web_port/
     ProxyPassReverse / http://127.0.0.1:$web_port/
 </VirtualHost>
@@ -85,6 +93,7 @@ CONF
     ProxyTimeout 120
     LimitRequestBody 5242880
     Header always set X-Content-Type-Options nosniff
+    RequestHeader set X-Real-IP "%{REMOTE_ADDR}s"
     RedirectMatch 302 ^/$ /api/actuator/health
     ProxyPass /api/ http://127.0.0.1:$api_port/api/
     ProxyPassReverse /api/ http://127.0.0.1:$api_port/api/

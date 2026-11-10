@@ -133,6 +133,8 @@ The web app's sign-in uses a secure cookie, so it works only over HTTPS: sign in
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | First admin, created only when there are no users. Ignored afterwards; you can delete the password line once you've signed in. |
 | `KHQR_MODE`, `BAKONG_*` | Defaults until saved in Settings > Taxes & payments. |
 | `BACKUP_EVERY_HOURS`, `BACKUP_KEEP_DAYS` | Backup schedule, default every 24 hours, kept 14 days. |
+| `METRICS_TOKEN`, `LOGGING_STRUCTURED_FORMAT_CONSOLE` | Prometheus metrics and JSON logs (see Monitoring). Metrics are off without a token. |
+| `COMPOSE_PROFILES=offsite`, `BACKUP_REMOTE`, `BACKUP_REMOTE_KEEP_DAYS` | Copy backups off the server (see Backups); copies kept 90 days. |
 
 More options (session lengths, sign-in lockout, held-sale timers) are listed in `../.env.example` and shown in **Settings > System**. After editing `.env`, apply it with `docker compose -f docker-compose.prod.yml up -d`.
 
@@ -156,7 +158,7 @@ To go live afterwards, start from an empty database: restore a backup taken befo
 
 The `backup` service dumps the database when it starts and then every `BACKUP_EVERY_HOURS`, into `deploy/backups/pos_next-<date>.sql.gz`, and deletes dumps older than `BACKUP_KEEP_DAYS`. Product pictures and the logo are in the database, so one file holds everything.
 
-**Copy the backups off the server.** A disk failure takes the backups with it. For example, a nightly `rsync` or `rclone` of `deploy/backups/` to another machine or cloud storage.
+**Copy the backups off the server** (below): a disk failure takes the backups with it.
 
 Take one by hand (before an update, say):
 
@@ -165,6 +167,41 @@ Take one by hand (before an update, say):
 ```
 
 See what the job has done: `docker compose -f docker-compose.prod.yml logs backup`.
+
+### Copy backups off the server
+
+The optional `backup-offsite` service copies every finished dump in `deploy/backups/` to another
+place with [rclone](https://rclone.org): a NAS or another machine (SFTP, SMB), or cloud storage
+(Google Drive, S3, Backblaze B2, Cloudflare R2 and others). It checks every hour and removes copies
+older than 90 days there. The dumps contain customers' names and phone numbers: use storage only
+the owner can open, and ideally an rclone `crypt` remote, which encrypts the files before they leave.
+
+1. Set up the remote once (answers are saved in `deploy/rclone/rclone.conf`, which is not in git;
+   keep a copy with `.env`):
+
+   ```bash
+   mkdir -p rclone
+   docker run --rm -it -v "$PWD/rclone:/config/rclone" rclone/rclone:1.75.2 config
+   ```
+
+   Name it, for example, `offsite`. For encryption, add a second remote of type `crypt` that wraps
+   the first (e.g. `offsite-crypt` over `offsite:pos-backups`) and use that name below. **Save the
+   crypt passwords**: without them the copies can't be read.
+
+2. Add to `deploy/.env` and start it:
+
+   ```bash
+   COMPOSE_PROFILES=offsite
+   BACKUP_REMOTE=offsite:pos-backups      # or offsite-crypt:
+   ```
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d
+   docker compose -f docker-compose.prod.yml logs backup-offsite   # "off-site copy done" each hour
+   ```
+
+3. Check now and then that the files are there (`docker run --rm -v "$PWD/rclone:/config/rclone"
+   rclone/rclone:1.75.2 ls offsite:pos-backups`), and once restore one on a spare machine.
 
 ### Restoring
 
@@ -188,6 +225,11 @@ docker compose -f docker-compose.prod.yml up -d --build
 With sample data loaded, updating keeps it (the data is only replaced when you run `load-sample-data.sh` again, e.g. to refresh the dates).
 
 Database changes are applied automatically when the API starts (Flyway migrations); the API reports healthy once they're done. Sales stop for the minute or two the API restarts, so update outside opening hours.
+
+If the server sits behind your own nginx or Apache (see above), regenerate its config after an update
+that changes `proxy-config.sh`, and reload the web server: `./proxy-config.sh nginx` (or `apache`).
+Configs made before November 2026 let a client choose the address the sign-in limit counts against
+(Apache) and lack `X-Frame-Options`; configs made before 10 November 2026 lack `Permissions-Policy`.
 
 ### Rolling back
 
@@ -228,6 +270,49 @@ Containers restart by themselves after a crash or a server reboot (make sure Doc
 
 Never run `docker compose down -v`: `-v` deletes the database volume.
 
+## Monitoring
+
+**Health**: `https://<API_ADDRESS>/api/actuator/health` (or `docker compose -f docker-compose.prod.yml ps`) says
+`UP` while the API, its database connection and disk space are fine. Point an uptime checker
+(UptimeRobot, Uptime Kuma, Healthchecks…) at it to be told when the shop's server goes down.
+
+**Metrics for Prometheus** (requests, errors and response times per endpoint, the database pool, memory,
+disk space): set a token in `.env` and apply it with `docker compose -f docker-compose.prod.yml up -d`:
+
+```bash
+METRICS_TOKEN=<output of: openssl rand -hex 32>
+```
+
+The metrics are then at `/api/actuator/prometheus` for requests carrying `Authorization: Bearer <token>`;
+without the token (or with a staff sign-in) the answer is 401, and with no `METRICS_TOKEN` set they're
+off (404). A Prometheus scrape job (from inside Docker use `backend:8081`; from another machine, the
+`API_ADDRESS` over HTTPS):
+
+```yaml
+scrape_configs:
+  - job_name: pos-api
+    metrics_path: /api/actuator/prometheus
+    scheme: https
+    authorization:
+      credentials: <METRICS_TOKEN>
+    static_configs:
+      - targets: ["api.pos.example.com"]
+```
+
+Alerts worth having:
+
+| Alert | PromQL |
+|---|---|
+| API down | `up{job="pos-api"} == 0` for 2m |
+| Server errors | `sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) > 0.1` |
+| Slow requests (95th percentile over 2 s) | `histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket[5m]))) > 2` |
+| Database pool exhausted | `hikaricp_connections_pending > 0` for 1m |
+| Disk filling up (under 10% free) | `disk_free_bytes / disk_total_bytes < 0.1` |
+
+**JSON logs** for a log collector (Loki, Elasticsearch, CloudWatch…): add
+`LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` (or `logstash`) to `.env`. Without it the logs stay plain
+text, easier to read with `docker compose logs`. Container logs are capped at 5 × 10 MB per service.
+
 ## Checklist before opening
 
 - [ ] `https://<address>` opens without a certificate warning on every till and phone.
@@ -235,5 +320,5 @@ Never run `docker compose down -v`: `-v` deletes the database volume.
 - [ ] Company details, VAT, currencies and receipt look right on a test sale (then refund it).
 - [ ] Receipt printer and barcode scanner work at each till.
 - [ ] `deploy/.env` saved somewhere safe.
-- [ ] A backup file exists in `deploy/backups/` and is copied off the server.
+- [ ] A backup file exists in `deploy/backups/` and is copied off the server (`backup-offsite`).
 - [ ] KHQR in live mode, if you take KHQR payments, with one real test payment done.

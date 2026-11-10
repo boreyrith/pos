@@ -15,19 +15,28 @@
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
 		Referrer-Policy strict-origin-when-cross-origin
+		# The camera is for scanning barcodes; nothing else the browser offers is used.
+		Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=(), usb=()"
 		-Server
 	}
 }
 
 {$SITE_ADDRESS} {
 	import common
-	reverse_proxy frontend:3000
+	# The client's address as Caddy sees it, overwriting any X-Real-IP the client sent: the API's
+	# per-address sign-in limit and the list of signed-in devices rely on it.
+	reverse_proxy frontend:3000 {
+		header_up X-Real-IP {remote_host}
+	}
 }
 
 # Without API_ADDRESS this only answers http://api.localhost, i.e. nothing from outside.
 {$API_ADDRESS:http://api.localhost} {
 	import common
 	redir / /api/actuator/health
-	reverse_proxy backend:8081
+	reverse_proxy backend:8081 {
+		header_up X-Real-IP {remote_host}
+	}
 }
