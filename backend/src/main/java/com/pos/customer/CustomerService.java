@@ -6,7 +6,6 @@ import java.time.Instant;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,11 +30,13 @@ public class CustomerService {
     }
 
     /** {@code walkIn} marks the default customer. */
+    /** {@code pointsBalance}: loyalty points and {@code tier} (always 0 and null for the Walk-in Customer). */
     public record CustomerDto(Long id, String code, String name, String phone, String email, String address, String taxId,
-                              String note, boolean active, boolean walkIn, Instant createdAt) {
+                              String note, boolean active, boolean walkIn, Instant createdAt, int pointsBalance,
+                              com.pos.customer.Tier tier) {
         public static CustomerDto from(Customer c) {
             return new CustomerDto(c.getId(), c.getCode(), c.getName(), c.getPhone(), c.getEmail(), c.getAddress(), c.getTaxId(),
-                    c.getNote(), c.isActive(), c.isDefaultCustomer(), c.getCreatedAt());
+                    c.getNote(), c.isActive(), c.isDefaultCustomer(), c.getCreatedAt(), c.getPointsBalance(), c.getTier());
         }
     }
 
@@ -49,13 +50,13 @@ public class CustomerService {
     private final CustomerRepository customers;
     private final UserRepository users;
     private final AuditService audit;
-    private final JdbcClient jdbc;
+    private final PurchaseHistory purchases;
 
-    public CustomerService(CustomerRepository customers, UserRepository users, AuditService audit, JdbcClient jdbc) {
+    public CustomerService(CustomerRepository customers, UserRepository users, AuditService audit, PurchaseHistory purchases) {
         this.customers = customers;
         this.users = users;
         this.audit = audit;
-        this.jdbc = jdbc;
+        this.purchases = purchases;
     }
 
     @Transactional(readOnly = true)
@@ -72,20 +73,10 @@ public class CustomerService {
         return new CustomerDetail(CustomerDto.from(c), stats(id));
     }
 
-    /** Branch-wide totals for a customer; {@code branchId} null means every branch. */
+    /** A customer's totals across every branch. */
     @Transactional(readOnly = true)
     public CustomerStats stats(Long customerId) {
-        return jdbc.sql("""
-                        SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS gross, COALESCE(SUM(refunded_total), 0) AS refunded,
-                               MIN(completed_at) AS first_visit, MAX(completed_at) AS last_visit
-                        FROM orders WHERE customer_id = :id AND status IN ('COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED')
-                        """)
-                .param("id", customerId)
-                .query((rs, n) -> new CustomerStats(rs.getLong("orders"), rs.getBigDecimal("gross").subtract(rs.getBigDecimal("refunded")),
-                        rs.getBigDecimal("refunded"),
-                        rs.getTimestamp("first_visit") == null ? null : rs.getTimestamp("first_visit").toInstant(),
-                        rs.getTimestamp("last_visit") == null ? null : rs.getTimestamp("last_visit").toInstant()))
-                .single();
+        return purchases.stats(customerId);
     }
 
     @Transactional(readOnly = true)
@@ -111,6 +102,8 @@ public class CustomerService {
         Customer c = new Customer();
         apply(c, req);
         c.setCreatedBy(users.getReferenceById(user.id()));
+        // Everyone on file starts as Bronze; sales move them up.
+        c.setTier(com.pos.customer.Tier.BRONZE);
         customers.saveAndFlush(c);
         c.setCode(String.format("CUS-%05d", c.getId()));
         audit.log(AuditAction.CUSTOMER_CREATED, "Customer", c.getId(), "Added customer " + c.getName() + " (" + c.getCode()

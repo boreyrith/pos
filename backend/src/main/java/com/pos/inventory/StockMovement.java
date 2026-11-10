@@ -68,10 +68,9 @@ public class StockMovement {
     @JoinColumn(name = "adjustment_id", insertable = false, updatable = false)
     private StockAdjustment adjustment;
 
-    /** The vendor delivery that added this stock, for PURCHASE movements. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "goods_receipt_id", insertable = false, updatable = false)
-    private com.pos.purchasing.GoodsReceipt goodsReceipt;
+    /** The vendor delivery that added this stock, for PURCHASE movements (see {@link DeliveryLookup}). */
+    @Column(name = "goods_receipt_id", insertable = false, updatable = false)
+    private Long goodsReceiptId;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)

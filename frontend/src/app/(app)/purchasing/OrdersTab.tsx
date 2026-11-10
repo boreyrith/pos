@@ -39,7 +39,7 @@ export function OrdersTab() {
     setter(v);
     setPage(0);
   };
-  const currency = store.data?.currency ?? "USD";
+  const currency = store.data?.currency;
 
   return (
     <div>

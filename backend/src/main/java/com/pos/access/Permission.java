@@ -37,11 +37,22 @@ public enum Permission {
     PURCHASE_INVOICE(Module.PURCHASING, "Vendor invoices", "Record and void vendor invoices", "PURCHASE_VIEW"),
     PURCHASE_PAY(Module.PURCHASING, "Vendor payments", "Record payments to vendors", "PURCHASE_VIEW"),
 
+    MARKETING_VIEW(Module.MARKETING, "View marketing", "See promotions, coupon codes and how they performed"),
+    PROMOTIONS_MANAGE(Module.MARKETING, "Manage promotions", "Create, change, pause and delete promotions and their coupon codes", "MARKETING_VIEW"),
+    LOYALTY_MANAGE(Module.MARKETING, "Manage loyalty", "Set the loyalty points rules and add or take away a customer's points", "MARKETING_VIEW"),
+    CAMPAIGNS_MANAGE(Module.MARKETING, "Manage campaigns", "Create customer segments and campaigns, and export customers' contact details for them", "MARKETING_VIEW"),
+
+    ACCOUNTING_VIEW(Module.ACCOUNTING, "View accounting", "See the chart of accounts, journal entries, ledgers and other income and expenses"),
+    ACCOUNTING_RECORD(Module.ACCOUNTING, "Record income and expenses", "Record and void other income and expenses (rent, utilities, interest...)", "ACCOUNTING_VIEW"),
+    ACCOUNTING_JOURNAL(Module.ACCOUNTING, "Journal entries", "Post and reverse manual journal entries", "ACCOUNTING_VIEW"),
+    ACCOUNTING_MANAGE(Module.ACCOUNTING, "Manage accounting", "Edit the chart of accounts, start the books with opening balances and close periods", "ACCOUNTING_VIEW"),
+
     REPORTS_DASHBOARD(Module.REPORTS, "Sales dashboard", "Sales totals, top sellers, payment methods and cash by currency"),
     REPORTS_TAX(Module.REPORTS, "Tax report", "VAT collected and refunded, with CSV export"),
     REPORTS_SALES(Module.REPORTS, "Sales reports", "Sales, profit and margin by period, item, category, cashier, customer, payment; discounts and returns"),
     REPORTS_INVENTORY(Module.REPORTS, "Inventory reports", "Stock valuation at cost and stock movement summaries"),
     REPORTS_PURCHASING(Module.REPORTS, "Purchasing reports", "Purchases by vendor and what is owed, by age"),
+    REPORTS_ACCOUNTING(Module.REPORTS, "Financial reports", "Profit and loss, balance sheet, trial balance and other income and expenses"),
 
     SETTINGS_VIEW(Module.SETTINGS, "View settings", "See company, tax, KHQR and location settings (never secrets)"),
     SETTINGS_COMPANY(Module.SETTINGS, "Company settings", "Company details, logo, receipt footer and time zone", "SETTINGS_VIEW"),
@@ -61,7 +72,7 @@ public enum Permission {
 
     /** Groups for the role editor. */
     public enum Module {
-        SALES("Sales"), CUSTOMERS("Customers"), CATALOG("Catalog"), INVENTORY("Inventory"), PURCHASING("Purchasing"), REPORTS("Reports"), SETTINGS("Settings"),
+        SALES("Sales"), CUSTOMERS("Customers"), MARKETING("Marketing"), CATALOG("Catalog"), INVENTORY("Inventory"), PURCHASING("Purchasing"), ACCOUNTING("Accounting"), REPORTS("Reports"), SETTINGS("Settings"),
         USERS("Users and security"), SCOPE("Branch access");
 
         private final String label;

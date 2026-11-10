@@ -99,6 +99,11 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   return (await res.json()) as T;
 }
 
+/** Fetches a file with the user's session, e.g. an image only they may see. */
+export async function apiBlob(path: string): Promise<Blob> {
+  return (await request(path)).blob();
+}
+
 /** Fetches a file (e.g. a CSV export) with the user's session and saves it as `filename`. */
 export async function download(path: string, filename: string) {
   const blob = await (await request(path)).blob();

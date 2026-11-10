@@ -51,7 +51,7 @@ export function InvoicesTab() {
     setter(v);
     setPage(0);
   };
-  const currency = store.data?.currency ?? "USD";
+  const currency = store.data?.currency;
 
   return (
     <div>
@@ -168,6 +168,7 @@ export function InvoicesTab() {
                               <li key={p.id} className="flex flex-wrap gap-x-3">
                                 <span className="font-medium tabular-nums">{money(p.amount, currency)}</span>
                                 <span>{t(METHODS[p.method])}</span>
+                                {p.moneyAccount && <span className="text-muted">{t("from {account}", { account: p.moneyAccount })}</span>}
                                 <span className="text-muted">{shortDate(p.paidOn)}</span>
                                 {p.reference && <span className="text-muted">{t("ref {reference}", { reference: p.reference })}</span>}
                                 <span className="text-muted">{t("by {createdBy}", { createdBy: p.createdBy })}</span>
@@ -176,6 +177,7 @@ export function InvoicesTab() {
                             ))}
                           </ul>
                         )}
+                        {i.expenseAccount && <p className="mt-2 text-muted">{t("Booked to {account}", { account: i.expenseAccount })}</p>}
                         {i.note && <p className="mt-2 text-muted">{t("Note: {note}", { note: i.note })}</p>}
                       </td>
                     </tr>

@@ -19,14 +19,15 @@ import com.pos.audit.AuditAction;
 import com.pos.audit.AuditService;
 import com.pos.auth.AuthUser;
 import com.pos.auth.UserRepository;
+import com.pos.branch.BranchRepository;
 import com.pos.catalog.Offering;
 import com.pos.catalog.OfferingRepository;
+import com.pos.catalog.OfferingTaxes;
 import com.pos.common.ApiException;
-import com.pos.config.AppProperties;
+import com.pos.common.AppProperties;
 import com.pos.customer.Customer;
 import com.pos.customer.CustomerService;
 import com.pos.inventory.BranchContext;
-import com.pos.inventory.BranchRepository;
 import com.pos.sales.DiscountType;
 import com.pos.sales.Order;
 import com.pos.sales.PricingCalculator;
@@ -325,7 +326,7 @@ public class HeldSaleService {
             lines.add(new StoredLine(o.getId(), o.getName(), l.quantity(), l.hours(), l.staffId(), l.unitPrice(), l.priceReason(),
                     l.discountType(), l.discountValue(), o.getPrice()));
             priced.add(new PricingCalculator.Line(l.unitPrice() != null ? l.unitPrice() : o.getPrice(), l.quantity(), l.hours(),
-                    TaxService.keyFor(o, tax), l.discountType(), l.discountValue()));
+                    OfferingTaxes.keyFor(o, tax), l.discountType(), l.discountValue()));
             items += l.quantity();
         }
         Customer customer = req.customerId() == null ? null : customers.forSale(req.customerId());

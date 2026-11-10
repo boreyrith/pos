@@ -1,173 +1,26 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Banknote, Clock, LayoutGrid, Minus, Pause, Plus, Printer, QrCode, ScanLine, Search, ShoppingCart, Star, Tag, Trash2, TrendingUp } from "lucide-react";
+import { BadgePercent, Banknote, Clock, LayoutGrid, Minus, Pause, Plus, Printer, QrCode, ScanLine, Search, ShoppingCart, Star, Tag, Trash2, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CameraScanner } from "@/components/CameraScanner";
-import { CustomerPicker, type PickedCustomer } from "@/components/customers/CustomerPicker";
+import { CustomerPicker } from "@/components/customers/CustomerPicker";
 import { CashPayment, type CashTender } from "@/components/pos/CashPayment";
 import { HeldSalesList, HoldDialog, heldSalesKey } from "@/components/pos/HeldSales";
 import { KhqrPayment } from "@/components/pos/KhqrPayment";
 import { Receipt } from "@/components/pos/Receipt";
-import { Badge, Button, ErrorNote, Field, Input, Modal, Select, Spinner, cx } from "@/components/ui";
+import { Badge, Button, ErrorNote, Input, Modal, Select, Spinner, cx } from "@/components/ui";
 import { ApiError, api, queryString } from "@/lib/api";
 import { useUser } from "@/lib/auth";
 import { useBranch } from "@/lib/branch";
-import { amountIn, cashIn, duration, money } from "@/lib/format";
-import { calculateTotals, lineTotal, taxKeyFor, taxLabel } from "@/lib/pricing";
+import { amountIn, cashIn, money } from "@/lib/format";
+import { calculateTotals, lineTotal, taxLabel } from "@/lib/pricing";
 import { offeringImageUrl, useActiveCurrencies, useCategories, useStaff, useStoreSettings } from "@/lib/queries";
-import type {
-  DiscountType,
-  HeldSale,
-  Offering,
-  OfferingType,
-  Order,
-  Page,
-  PaymentMethod,
-  ResumedHold,
-  StoreSettings,
-} from "@/lib/types";
+import type { DiscountType, HeldSale, Offering, OfferingType, Order, LoyaltyRules, Page, PaymentMethod, PromotionPreview, ResumedHold, Tier } from "@/lib/types";
 import { msg, translate, translateServer, useT } from "@/lib/i18n";
-
-/**
- * `hours` and `staffId` only apply to services; `staffId` null means the cashier did the work.
- * `price` is a changed price (needs "Override prices"), null for the catalog price.
- * `discountType`/`discountValue` are an item discount (needs "Discount items").
- */
-interface CartLine {
-  offering: Offering;
-  quantity: number;
-  hours: number | null;
-  staffId: number | null;
-  price?: number | null;
-  priceReason?: string;
-  discountType?: DiscountType | null;
-  discountValue?: number;
-}
-
-/** What a cart line sells at. */
-const unitPrice = (l: CartLine) => l.price ?? l.offering.price;
-
-/** The sell screen's quick views. */
-type SellView = "all" | "favourites" | "top";
-
-/** Top selling products look back this many days. */
-const TOP_DAYS = 30;
-
-const TYPE_FILTERS: { value: OfferingType | null; label: string }[] = [
-  { value: null, label: msg("All") },
-  { value: "PRODUCT", label: msg("Products") },
-  { value: "SERVICE", label: msg("Services") },
-  { value: "ITEM", label: msg("Items") },
-  { value: "PACKAGE", label: msg("Packages") },
-];
-
-/**
- * The most of this line that can be sold: stock for products and items, how many can be made for
- * packages, Infinity for services (the server checks their parts).
- */
-const maxQuantity = (o: Offering) => (o.stock !== null ? o.stock : (o.packageInfo?.available ?? Infinity));
-
-type Stage =
-  | { kind: "cart" }
-  | { kind: "cash" }
-  | { kind: "khqr-currency" }
-  | { kind: "khqr"; order: Order; cart: number }
-  | { kind: "done"; order: Order };
-
-/** How many sales a cashier can keep open at once. */
-const CART_COUNT = 3;
-
-/** One open sale: its lines, discount, who it is for and a note. Held carts keep all of it. */
-interface SaleCart {
-  lines: CartLine[];
-  discountType: DiscountType;
-  discountValue: string;
-  /** Who the sale is for; null is the Walk-in Customer. */
-  customer: PickedCustomer | null;
-  note: string;
-  /** The held sale this cart was resumed from; paying completes it, holding again updates it. */
-  hold?: { id: number; number: string; label?: string | null } | null;
-  /** A KHQR order waiting to be paid for this cart; kept so a reload shows its QR code again. */
-  pendingOrderId?: number | null;
-}
-
-const emptyCart = (): SaleCart => ({ lines: [], discountType: "PERCENT", discountValue: "", customer: null, note: "" });
-
-/** Carts are kept per cashier and branch for the browser tab, so switching or reloading loses nothing. */
-const cartsKey = (userId: number, branchId: number | undefined) => `pos.carts.v5.${userId}.${branchId ?? "home"}`;
-
-/** The current tax settings decide each line's tax (the server applies the same rules at checkout). */
-const taxKey = (o: Offering, store: StoreSettings | undefined) =>
-  store ? taxKeyFor(o, store) : { rateId: o.taxRateId, name: o.effectiveTaxName, rate: o.effectiveTaxRate, included: o.includesTax };
-
-function loadCarts(key: string): { carts: SaleCart[]; active: number } {
-  try {
-    const raw = sessionStorage.getItem(key);
-    const saved = raw ? (JSON.parse(raw) as { carts?: Partial<SaleCart>[]; active?: number }) : {};
-    const carts = Array.from({ length: CART_COUNT }, (_, i) => {
-      const c = saved.carts?.[i];
-      return {
-        ...emptyCart(),
-        ...c,
-        // Carts saved before customers existed kept a typed name; start those as walk-ins.
-        customer: c?.customer && typeof c.customer === "object" ? c.customer : null,
-        lines: Array.isArray(c?.lines) ? c.lines.filter((l) => l?.offering?.id) : [],
-      };
-    });
-    const active = typeof saved.active === "number" && saved.active >= 0 && saved.active < CART_COUNT ? saved.active : 0;
-    return { carts, active };
-  } catch {
-    return { carts: Array.from({ length: CART_COUNT }, emptyCart), active: 0 };
-  }
-}
-
-const cartItems = (c: SaleCart) => c.lines.reduce((n, l) => n + l.quantity, 0);
-
-/** Today's catalog entries for these ids; anything missing is no longer for sale. */
-async function freshOfferings(ids: number[]): Promise<Map<number, Offering>> {
-  if (ids.length === 0) return new Map();
-  const page = await api<Page<Offering>>(`/offerings${queryString({ ids: [...new Set(ids)].join(","), forSale: true, size: 200 })}`);
-  return new Map(page.items.map((o) => [o.id, o]));
-}
-
-/**
- * Brings cart lines up to date with the catalog: today's price and stock, and drops what can no
- * longer be sold. Returns what changed, to tell the cashier. Changed prices on a line are kept.
- */
-function refreshLines(lines: CartLine[], fresh: Map<number, Offering>, currency: string) {
-  const changes: string[] = [];
-  const out: CartLine[] = [];
-  for (const l of lines) {
-    const o = fresh.get(l.offering.id);
-    if (!o) {
-      changes.push(translate("{name} is no longer available and was removed", { name: l.offering.name }));
-      continue;
-    }
-    if (o.price !== l.offering.price && l.price == null) {
-      changes.push(translate("{name} is now {price} (was {old})", { name: o.name, price: money(o.price, currency), old: money(l.offering.price, currency) }));
-    }
-    const max = maxQuantity(o);
-    if (max <= 0) {
-      changes.push(translate("{name} is out of stock and was removed", { name: o.name }));
-      continue;
-    }
-    if (l.quantity > max) changes.push(translate("Only {n} {name} left, quantity lowered", { n: max, name: o.name }));
-    out.push({ ...l, offering: o, quantity: Math.min(l.quantity, max) });
-  }
-  return { lines: out, changes };
-}
-
-/** What the server needs for each line, at checkout and when holding. */
-const linePayload = (l: CartLine) => ({
-  offeringId: l.offering.id,
-  quantity: l.quantity,
-  hours: l.offering.pricing === "HOURLY" ? l.hours : null,
-  staffId: l.offering.type === "SERVICE" || l.offering.packageInfo?.containsServices ? l.staffId : null,
-  ...(l.price != null ? { unitPrice: l.price, priceReason: l.priceReason } : {}),
-  ...(l.discountType && l.discountValue ? { discountType: l.discountType, discountValue: l.discountValue } : {}),
-});
+import { type CartLine, unitPrice, type SellView, TOP_DAYS, TYPE_FILTERS, maxQuantity, type Stage, CART_COUNT, type SaleCart, emptyCart, cartsKey, taxKey, loadCarts, cartItems, freshOfferings, refreshLines, linePayload } from "./cart";
+import { useDebounced, CouponField, PointsField, TotalRow, TileBadge, PriceDialog, ItemDiscountDialog } from "./CartFields";
 
 export function PosScreen() {
   const t = useT();
@@ -326,21 +179,76 @@ export function PosScreen() {
   const soldById = new Map((topSelling.data ?? []).map((x) => [x.offering.id, x.sold]));
 
   const discount = Number(discountValue) || 0;
-  const totals = useMemo(
+
+  // Promotions: the server works out what they take off this cart (and decides again at checkout).
+  const promoRequest = useMemo(
     () =>
-      calculateTotals(
-        cart.map((l) => ({
-          unitPrice: unitPrice(l),
-          quantity: l.quantity,
-          hours: l.hours,
-          tax: taxKey(l.offering, store.data),
-          discountType: l.discountType ?? null,
-          discountValue: l.discountValue ?? 0,
-        })),
-        discount > 0 ? discountType : null,
-        discount,
-      ),
-    [cart, discount, discountType, store.data],
+      cart.length === 0
+        ? null
+        : JSON.stringify({ items: cart.map(linePayload), customerId: current.customer?.id ?? null, couponCode: current.couponCode || null }),
+    [cart, current.customer?.id, current.couponCode],
+  );
+  const promoKey = useDebounced(promoRequest, 250);
+  const promos = useQuery({
+    queryKey: ["promotions", "preview", promoKey],
+    queryFn: async () => {
+      const body = JSON.parse(promoKey!) as { items: { offeringId: number }[] };
+      return { ids: body.items.map((x) => x.offeringId), preview: await api<PromotionPreview>("/promotions/evaluate", { method: "POST", json: body }) };
+    },
+    enabled: promoKey != null,
+    placeholderData: (previous) => previous,
+    staleTime: 15_000,
+  });
+  // Until a new preview arrives, each line keeps what its promotion last took off it.
+  const promoUpToDate = promoRequest == null || (promoKey === promoRequest && !promos.isFetching && !promos.isPlaceholderData) || promos.isError;
+  const linePromos = useMemo(() => {
+    const data = promos.data;
+    return cart.map((l) => {
+      const i = data ? data.ids.indexOf(l.offering.id) : -1;
+      return i >= 0 ? data!.preview.lines[i] : { promoDiscount: 0, promotionId: null, promotionName: null };
+    });
+  }, [cart, promos.data]);
+  const preview = cart.length > 0 && !promos.isError ? promos.data?.preview : undefined;
+
+  // Loyalty: a picked customer's points, used as the last discount before tax.
+  const loyaltyRules = useQuery({ queryKey: ["loyalty", "rules"], queryFn: () => api<LoyaltyRules>("/loyalty/rules"), staleTime: 60_000 });
+  const rules = loyaltyRules.data?.enabled ? loyaltyRules.data : null;
+  const customerId = current.customer?.id ?? null;
+  const points = useQuery({
+    queryKey: ["loyalty", "balance", customerId],
+    queryFn: () => api<{ points: number; value: number; tier: Tier | null }>(`/loyalty/customers/${customerId}`),
+    enabled: rules != null && customerId != null,
+  });
+
+  const pricingLines = useMemo(
+    () =>
+      cart.map((l, i) => ({
+        unitPrice: unitPrice(l),
+        quantity: l.quantity,
+        hours: l.hours,
+        tax: taxKey(l.offering, store.data),
+        discountType: l.discountType ?? null,
+        discountValue: l.discountValue ?? 0,
+        promoDiscount: linePromos[i].promoDiscount,
+      })),
+    [cart, store.data, linePromos],
+  );
+  const orderDiscountType = discount > 0 ? discountType : null;
+  const beforePoints = useMemo(
+    () => calculateTotals(pricingLines, orderDiscountType, discount, preview?.orderDiscount ?? 0),
+    [pricingLines, orderDiscountType, discount, preview],
+  );
+  // The most points this sale can take, worked out as the server checks it: the set share of what is
+  // left after every other discount (before tax), in whole points.
+  const pointsLeft = beforePoints.subtotal - beforePoints.promoDiscount - beforePoints.itemDiscount - beforePoints.orderPromoDiscount - beforePoints.discount;
+  const maxPoints = rules ? Math.max(0, Math.floor((pointsLeft * rules.maxRedeemPct) / 100 / rules.pointValue + 1e-9)) : 0;
+  const usablePoints = Math.min(points.data?.points ?? 0, maxPoints);
+  const wantedPoints = current.redeemPoints ?? 0;
+  const redeemPoints = rules && wantedPoints > 0 && usablePoints >= rules.minRedeem ? Math.min(Math.max(wantedPoints, rules.minRedeem), usablePoints) : 0;
+  const pointsMoney = rules ? Math.round(redeemPoints * rules.pointValue * 100) / 100 : 0;
+  const totals = useMemo(
+    () => (pointsMoney > 0 ? calculateTotals(pricingLines, orderDiscountType, discount, preview?.orderDiscount ?? 0, pointsMoney) : beforePoints),
+    [pricingLines, orderDiscountType, discount, preview, pointsMoney, beforePoints],
   );
   const itemCount = cart.reduce((n, l) => n + l.quantity, 0);
 
@@ -470,12 +378,16 @@ export function PosScreen() {
           changeCurrency: args.changeCurrency,
           khqrCurrency: args.khqrCurrency,
           heldSaleId: current.hold?.id ?? null,
+          couponCode: current.couponCode || null,
+          redeemPoints: redeemPoints || null,
           // The server refuses the sale if its total differs from what the cashier was shown.
           expectedTotal: Number(totals.total.toFixed(2)),
         },
       }),
     onError: async (err) => {
       if (!(err instanceof ApiError && err.code === "PRICES_CHANGED") || !store.data) return;
+      // A promotion may have ended or run out: work them out again too.
+      queryClient.invalidateQueries({ queryKey: ["promotions", "preview"] });
       // Prices moved since the cart was built: load today's and let the cashier check before charging.
       const index = active;
       const currency = store.data.currency;
@@ -492,6 +404,7 @@ export function PosScreen() {
     onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: ["offerings"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["loyalty"] });
       queryClient.invalidateQueries({ queryKey: heldSalesKey });
       if (order.status === "COMPLETED") {
         clearSale(active);
@@ -589,7 +502,7 @@ export function PosScreen() {
         return;
       }
       const { r, target, fresh } = res;
-      const currency = store.data?.currency ?? "USD";
+      const currency = store.data?.currency;
       // Rebuild the cart from the stored lines with today's catalog entries.
       const stored: CartLine[] = r.cart.lines.flatMap((l) => {
         const o = fresh.get(l.offeringId);
@@ -644,7 +557,8 @@ export function PosScreen() {
   const settings = store.data;
   const discountInvalid = discountType === "PERCENT" && discount > 100;
   const hoursMissing = cart.some((l) => l.offering.pricing === "HOURLY" && !(l.hours && l.hours > 0));
-  const blocked = cart.length === 0 || discountInvalid || hoursMissing;
+  // Charging waits for the promotions to catch up with the cart, so the total shown is the one charged.
+  const blocked = cart.length === 0 || discountInvalid || hoursMissing || !promoUpToDate;
 
   return (
     <div className="flex flex-col lg:h-screen lg:flex-row">
@@ -887,7 +801,7 @@ export function PosScreen() {
             key={`${saved.key}-${active}`}
             label={t("Customer for cart {active}", { active: active + 1 })}
             value={current.customer}
-            onChange={(customer) => updateCart((c) => ({ ...c, customer }))}
+            onChange={(customer) => updateCart((c) => ({ ...c, customer, redeemPoints: null }))}
           />
           {itemCount > 0 && <Badge tone="primary">{itemCount}</Badge>}
           {cart.length > 0 && (
@@ -933,8 +847,9 @@ export function PosScreen() {
             </p>
           ) : (
             <ul className="divide-y divide-border">
-              {cart.map((line) => {
+              {cart.map((line, lineIndex) => {
                 const { offering, quantity } = line;
+                const promo = linePromos[lineIndex];
                 const isService = offering.type === "SERVICE" || Boolean(offering.packageInfo?.containsServices);
                 return (
                   <li key={offering.id} className="px-4 py-3">
@@ -976,6 +891,13 @@ export function PosScreen() {
                           })()}
                         </div>
                         {line.price != null && <div className="truncate text-xs text-warning">{t("Price changed: {priceReason}", { priceReason: line.priceReason })}</div>}
+                        {promo.promoDiscount > 0 && (
+                          <div className="mt-0.5 flex items-center gap-1 text-xs font-medium text-success">
+                            <BadgePercent className="size-3.5 shrink-0" aria-hidden />
+                            <span className="truncate">{promo.promotionName}</span>
+                            <span className="shrink-0 tabular-nums">-{money(promo.promoDiscount, settings.currency)}</span>
+                          </div>
+                        )}
                         {(canDiscount || line.discountValue) && (
                           <button
                             type="button"
@@ -1079,6 +1001,24 @@ export function PosScreen() {
             onChange={(e) => updateCart((c) => ({ ...c, note: e.target.value }))}
             className="mb-3 h-9 text-sm"
           />
+          <CouponField
+            key={active}
+            code={current.couponCode ?? null}
+            result={preview?.coupon ?? null}
+            checking={!promoUpToDate}
+            onChange={(code) => updateCart((c) => ({ ...c, couponCode: code }))}
+          />
+          {rules && customerId != null && points.data && (
+            <PointsField
+              tier={points.data.tier}
+              balance={points.data.points}
+              rules={rules}
+              usable={usablePoints}
+              using={redeemPoints}
+              currency={settings.currency}
+              onChange={(n) => updateCart((c) => ({ ...c, redeemPoints: n }))}
+            />
+          )}
           <div className="mb-3 flex items-center gap-2">
             <span className="text-sm text-muted">{t("Discount")}</span>
             <div className="ml-auto flex overflow-hidden rounded-lg border border-border" role="group" aria-label={t("Discount type")}>
@@ -1108,8 +1048,23 @@ export function PosScreen() {
               label={settings.taxMode === "EXCLUSIVE" ? t("Subtotal (before {taxLabel})", { taxLabel: settings.taxLabel }) : t("Subtotal")}
               value={money(totals.subtotal, settings.currency)}
             />
+            {totals.promoDiscount > 0 && <TotalRow label={t("Promotions")} value={`-${money(totals.promoDiscount, settings.currency)}`} />}
             {totals.itemDiscount > 0 && <TotalRow label={t("Item discounts")} value={`-${money(totals.itemDiscount, settings.currency)}`} />}
+            {totals.orderPromoDiscount > 0 && (
+              <TotalRow
+                label={
+                  preview?.applied
+                    .filter((a) => a.kind === "ORDER_DISCOUNT")
+                    .map((a) => (a.code ? `${a.name} (${a.code})` : a.name))
+                    .join(", ") || t("Order promotion")
+                }
+                value={`-${money(totals.orderPromoDiscount, settings.currency)}`}
+              />
+            )}
             {totals.discount > 0 && <TotalRow label={t("Order discount")} value={`-${money(totals.discount, settings.currency)}`} />}
+            {totals.pointsDiscount > 0 && (
+              <TotalRow label={t("{n} points", { n: redeemPoints.toLocaleString() })} value={`-${money(totals.pointsDiscount, settings.currency)}`} />
+            )}
             {settings.taxMode === "EXCLUSIVE" && totals.taxAdded > 0 && (
               <TotalRow label={t("Taxable amount")} value={money(totals.taxableAmount, settings.currency)} />
             )}
@@ -1312,244 +1267,5 @@ export function PosScreen() {
         )}
       </Modal>
     </div>
-  );
-}
-
-function TotalRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between">
-      <dt className="text-muted">{label}</dt>
-      <dd className="tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
-function TileBadge({ offering: o }: { offering: Offering }) {
-  const t = useT();
-  if (o.type === "PACKAGE") {
-    const available = o.packageInfo?.available;
-    if (available === null || available === undefined) return <Badge>{t("Package")}</Badge>;
-    if (available <= 0) return <Badge tone="danger">{t("Out")}</Badge>;
-    return <Badge tone={available <= 3 ? "warning" : "primary"}>{t("{available} available", { available })}</Badge>;
-  }
-  if (o.type === "SERVICE") {
-    return o.durationMinutes ? <span className="text-xs text-muted">{duration(o.durationMinutes)}</span> : <Badge>{t("Service")}</Badge>;
-  }
-  const stock = o.stock ?? 0;
-  if (stock <= 0) return <Badge tone="danger">{t("Out")}</Badge>;
-  if (stock <= (o.lowStockThreshold ?? 0)) return <Badge tone="warning">{t("{stock} left", { stock })}</Badge>;
-  return (
-    <span className="text-xs text-muted tabular-nums">
-      {stock}
-      {o.unit ? ` ${o.unit}` : ""}
-    </span>
-  );
-}
-
-const REASONS = [msg("Damaged or near expiry"), msg("Price match"), msg("Bulk deal"), msg("Loyal customer"), msg("Wrong label price")];
-
-/**
- * Changes one line's price. Needs "Override prices"; a reason is required and goes on the order
- * and the audit log. Below the item's cost needs "Sell below cost". The server checks it all again.
- */
-function PriceDialog({
-  line,
-  currency,
-  belowCost,
-  onClose,
-  onApply,
-}: {
-  line: CartLine;
-  currency: string;
-  belowCost: boolean;
-  onClose: () => void;
-  onApply: (price: number | null, reason: string) => void;
-}) {
-  const t = useT();
-  const o = line.offering;
-  const [price, setPrice] = useState(String(line.price ?? o.price));
-  const [reason, setReason] = useState(line.priceReason ?? "");
-  const value = Number(price);
-  const valid = price.trim() !== "" && Number.isFinite(value) && value >= 0 && /^\d+(\.\d{1,2})?$/.test(price.trim());
-  const underCost = valid && o.cost > 0 && value < o.cost;
-  const unchanged = valid && value === o.price;
-  const blocked = !valid || (underCost && !belowCost) || (!unchanged && reason.trim().length < 3);
-  const per = o.pricing === "HOURLY" ? ` ${t("per hour")}` : o.unit ? ` ${t("per {unit}", { unit: o.unit })}` : "";
-
-  return (
-    <Modal open onClose={onClose} title={t("Change price: {name}", { name: o.name })}>
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (blocked) return;
-          onApply(unchanged ? null : Math.round(value * 100) / 100, unchanged ? "" : reason.trim());
-        }}
-      >
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-          <dt className="text-muted">{t("Catalog price")}</dt>
-          <dd className="text-right tabular-nums">
-            {money(o.price, currency)}
-            {per}
-          </dd>
-          {o.cost > 0 && (
-            <>
-              <dt className="text-muted">{t("Cost")}</dt>
-              <dd className="text-right tabular-nums">{money(o.cost, currency)}</dd>
-            </>
-          )}
-        </dl>
-        <Field
-          label={t("New price{per}", { per })}
-          error={!valid && price !== "" ? t("Enter an amount, e.g. 4.50") : underCost && !belowCost ? t("Below cost: you need the “Sell below cost” permission") : undefined}
-          hint={underCost && belowCost ? t("This is below cost.") : t("VAT and discounts apply to the new price as usual.")}
-        >
-          <Input autoFocus inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ""))} />
-        </Field>
-        <Field label={t("Reason")} hint={t("Required. Saved on the order and in the audit log.")}>
-          <Input value={reason} maxLength={255} onChange={(e) => setReason(e.target.value)} disabled={unchanged} />
-        </Field>
-        <div className="flex flex-wrap gap-1.5">
-          {REASONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              disabled={unchanged}
-              onClick={() => setReason(t(r))}
-              className="rounded-full border border-border px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-40"
-            >
-              {t(r)}
-            </button>
-          ))}
-        </div>
-        <div className="flex justify-between gap-2">
-          {line.price != null ? (
-            <Button type="button" variant="ghost" onClick={() => onApply(null, "")}>
-              {t("Use catalog price")}
-            </Button>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" onClick={onClose}>
-              {t("Cancel")}
-            </Button>
-            <Button type="submit" disabled={blocked}>
-              {unchanged ? t("Keep catalog price") : t("Apply price")}
-            </Button>
-          </div>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-/**
- * A % or amount off one cart line. Needs "Discount items"; the role's maximum % applies to both
- * kinds (an amount is checked as a % of the line). The order discount, if any, comes on top.
- */
-function ItemDiscountDialog({
-  line,
-  gross,
-  currency,
-  maxPct,
-  onClose,
-  onApply,
-}: {
-  line: CartLine;
-  gross: number;
-  currency: string;
-  maxPct: number | null;
-  onClose: () => void;
-  onApply: (type: DiscountType | null, value: number) => void;
-}) {
-  const t = useT();
-  const [type, setType] = useState<DiscountType>(line.discountType ?? "PERCENT");
-  const [value, setValue] = useState(line.discountValue ? String(line.discountValue) : "");
-  const v = Number(value) || 0;
-  const off = type === "PERCENT" ? Math.round(gross * Math.min(v, 100)) / 100 : Math.min(v, gross);
-  // A % discount counts as the % entered; an amount as the % of the line it takes off (like the server).
-  const pct = type === "PERCENT" ? v : gross > 0 ? (off / gross) * 100 : 0;
-  const tooMuch = maxPct != null && pct > maxPct + 1e-9;
-  const invalid = value !== "" && (!/^\d+(\.\d{1,2})?$/.test(value) || (type === "PERCENT" && v > 100));
-  return (
-    <Modal open onClose={onClose} title={t("Discount: {name}", { name: line.offering.name })}>
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!invalid && !tooMuch) onApply(v > 0 ? type : null, v);
-        }}
-      >
-        <p className="text-sm text-muted">
-          {t("Line total {gross}", { gross: money(gross, currency) })}
-          {maxPct != null && t(" · your role can take up to {maxPct}% off", { maxPct })}
-        </p>
-        <div className="flex gap-2">
-          <div className="flex overflow-hidden rounded-lg border border-border" role="group" aria-label={t("Discount type")}>
-            {(["PERCENT", "AMOUNT"] as const).map((x) => (
-              <button
-                key={x}
-                type="button"
-                onClick={() => setType(x)}
-                aria-pressed={type === x}
-                className={cx("h-10 w-12 text-sm", type === x ? "bg-primary text-on-primary" : "hover:bg-surface-2")}
-              >
-                {x === "PERCENT" ? "%" : "$"}
-              </button>
-            ))}
-          </div>
-          <Input
-            autoFocus
-            inputMode="decimal"
-            aria-label={t("Discount")}
-            placeholder="0"
-            value={value}
-            onChange={(e) => setValue(e.target.value.replace(/[^\d.]/g, ""))}
-            invalid={invalid || tooMuch}
-            className="h-10 flex-1 text-right tabular-nums"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {[5, 10, 15, 20, 50].filter((p) => maxPct == null || p <= maxPct).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => {
-                setType("PERCENT");
-                setValue(String(p));
-              }}
-              className="rounded-full border border-border px-2.5 py-1 text-xs hover:bg-surface-2"
-            >
-              {p}%
-            </button>
-          ))}
-        </div>
-        <p className={cx("text-sm", tooMuch ? "text-danger" : "")}>
-          {tooMuch
-            ? t("That is {Number}% off; your role allows up to {maxPct}%.", { Number: Number(pct.toFixed(1)), maxPct })
-            : off > 0
-              ? t("Takes {off} off ({Number}%); the line becomes {gross}. VAT is worked out after it.", { off: money(off, currency), Number: Number(pct.toFixed(1)), gross: money(gross - off, currency) })
-              : t("No discount.")}
-        </p>
-        <div className="flex justify-between gap-2">
-          {line.discountValue ? (
-            <Button type="button" variant="ghost" onClick={() => onApply(null, 0)}>
-              {t("Remove discount")}
-            </Button>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" onClick={onClose}>
-              {t("Cancel")}
-            </Button>
-            <Button type="submit" disabled={invalid || tooMuch}>
-              {t("Apply")}
-            </Button>
-          </div>
-        </div>
-      </form>
-    </Modal>
   );
 }

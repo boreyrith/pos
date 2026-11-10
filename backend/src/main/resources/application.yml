@@ -23,6 +23,9 @@ spring:
     properties:
       hibernate:
         jdbc.time_zone: UTC
+        # Lazy collections and references load in batches (one query per batch, not one per row),
+        # so pages that show many orders, lines or promotions don't run a query per item.
+        default_batch_fetch_size: 64
   flyway:
     locations: classpath:db/migration
   servlet:
@@ -42,7 +45,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        # prometheus answers only with METRICS_TOKEN (MetricsAccessFilter); without it, 404.
+        include: health,prometheus
+  metrics:
+    tags:
+      application: pos-api
+    distribution:
+      # Response-time buckets, so dashboards can show the slowest requests (p95, p99).
+      percentiles-histogram:
+        http.server.requests: true
 
 springdoc:
   swagger-ui:
@@ -78,6 +89,9 @@ app:
     lock-timeout: ${HOLD_LOCK_TIMEOUT:30m}
   # Base64 AES-256 key for secrets saved in the database (the Bakong token). openssl rand -base64 32
   secrets-key: ${SECRETS_KEY:}
+  # Bearer token Prometheus sends to read /actuator/prometheus; empty turns the metrics off.
+  # openssl rand -hex 32
+  metrics-token: ${METRICS_TOKEN:}
 
 logging:
   level:

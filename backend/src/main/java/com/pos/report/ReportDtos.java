@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-import com.pos.catalog.OfferingType;
+import com.pos.common.OfferingType;
 
 public final class ReportDtos {
 

@@ -1,6 +1,5 @@
 package com.pos.settings;
 
-import com.pos.config.AppProperties;
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -8,6 +7,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import com.pos.auth.User;
+import com.pos.common.AppProperties;
 import com.pos.tax.TaxMode;
 
 import jakarta.persistence.Basic;

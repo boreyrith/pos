@@ -15,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import com.pos.config.AppProperties;
 
 /**
  * Encrypts secrets kept in the database (e.g. the Bakong API token) with AES-256-GCM. The key is

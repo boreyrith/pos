@@ -6,7 +6,7 @@ import java.util.List;
 
 import com.pos.auth.User;
 import com.pos.catalog.Offering;
-import com.pos.catalog.OfferingType;
+import com.pos.common.OfferingType;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -120,7 +120,14 @@ public class OrderItem {
     @Column(name = "item_discount", nullable = false, precision = 12, scale = 2)
     private BigDecimal itemDiscount = BigDecimal.ZERO;
 
-    /** The line's item discount plus its share of the order discount. */
+    /** What a promotion took off this line (before the item discount), and which, as named then. */
+    @Column(name = "promo_discount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal promoDiscount = BigDecimal.ZERO;
+
+    @Column(name = "promotion_name", length = 120)
+    private String promotionName;
+
+    /** The line's promotion and item discount plus its share of the order-level discounts. */
     @Column(name = "line_discount", nullable = false, precision = 12, scale = 2)
     private BigDecimal lineDiscount = BigDecimal.ZERO;
 
@@ -170,6 +177,7 @@ public class OrderItem {
     }
 
     public void apply(PricingCalculator.LineSplit split) {
+        promoDiscount = split.promoDiscount();
         itemDiscount = split.itemDiscount();
         lineDiscount = split.discount();
         lineNet = split.net();

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Badge, Input, Select, Spinner } from "@/components/ui";
 import { api, queryString } from "@/lib/api";
 import { TYPE_LABELS, money } from "@/lib/format";
+import { useCurrency } from "@/lib/queries";
 import type { Offering, OfferingType, Page } from "@/lib/types";
 import { useT } from "@/lib/i18n";
 
@@ -51,6 +52,7 @@ export function PackageContents({
   price: number;
 }) {
   const t = useT();
+  const currency = useCurrency();
   const [search, setSearch] = useState("");
   const details = useQueries({
     queries: rows.map((r) => ({
@@ -104,7 +106,7 @@ export function PackageContents({
                         </span>
                         <span className="flex items-center gap-2">
                           <Badge>{t(TYPE_LABELS[o.type])}</Badge>
-                          <span className="text-xs text-muted tabular-nums">{money(o.price)}</span>
+                          <span className="text-xs text-muted tabular-nums">{money(o.price, currency)}</span>
                         </span>
                       </button>
                     </li>
@@ -135,7 +137,7 @@ export function PackageContents({
                 </div>
                 <div className="text-xs text-muted tabular-nums">
                   {o
-                    ? `${money(o.price)}${hourly ? ` / ${t("h")}` : options.length ? ` / ${o.unit}` : ""} · ${t("on its own {value}", { value: money(rowValue(o, row)) })}`
+                    ? `${money(o.price, currency)}${hourly ? ` / ${t("h")}` : options.length ? ` / ${o.unit}` : ""} · ${t("on its own {value}", { value: money(rowValue(o, row), currency) })}`
                     : "…"}
                 </div>
               </div>
@@ -181,14 +183,14 @@ export function PackageContents({
       {rows.length > 0 && (
         <div className="mt-2 flex flex-wrap justify-between gap-2 rounded-lg bg-surface-2 px-3 py-2 text-sm">
           <span className="text-muted">
-            {t("Bought separately:")}{" "}<span className="font-medium text-text tabular-nums">{money(separate)}</span>
+            {t("Bought separately:")}{" "}<span className="font-medium text-text tabular-nums">{money(separate, currency)}</span>
           </span>
           {price > 0 && separate > 0 && (
             <span className={price < separate ? "text-success" : "text-muted"}>
               {price < separate
-                ? t("Customer saves {separate} ({round}%)", { separate: money(separate - price), round: Math.round(((separate - price) / separate) * 100) })
+                ? t("Customer saves {separate} ({round}%)", { separate: money(separate - price, currency), round: Math.round(((separate - price) / separate) * 100) })
                 : price > separate
-                  ? t("Package costs {price} more than buying separately", { price: money(price - separate) })
+                  ? t("Package costs {price} more than buying separately", { price: money(price - separate, currency) })
                   : t("Same as buying separately")}
             </span>
           )}

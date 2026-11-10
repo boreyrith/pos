@@ -8,7 +8,7 @@ import { Badge, Button, Card, ErrorNote, Input, Pagination, Select, Spinner, cx 
 import { api, queryString } from "@/lib/api";
 import { useCan } from "@/lib/auth";
 import { dateTime, money } from "@/lib/format";
-import { useAdjustmentReasons, useStoreSettings } from "@/lib/queries";
+import { useAdjustmentReasons, useStoreSettings, useCurrency } from "@/lib/queries";
 import type { AdjustmentKind, AdjustmentReason, Page, StockAdjustment } from "@/lib/types";
 import { translateServer, useT } from "@/lib/i18n";
 
@@ -19,6 +19,7 @@ import { StockCountDialog } from "./StockCountDialog";
 /** Applied stock adjustments and counts, newest first, with their lines on demand. */
 export function AdjustmentsTab() {
   const t = useT();
+  const currency = useCurrency();
   const can = useCan();
   const store = useStoreSettings();
   const reasons = useAdjustmentReasons();
@@ -138,7 +139,7 @@ export function AdjustmentsTab() {
                       <td className="px-3 py-3 text-right tabular-nums">{a.lineCount}</td>
                       <td className={cx("px-3 py-3 text-right font-medium tabular-nums", a.valueChange < 0 ? "text-danger" : a.valueChange > 0 ? "text-success" : "")}>
                         {a.valueChange > 0 ? "+" : ""}
-                        {money(a.valueChange)}
+                        {money(a.valueChange, currency)}
                       </td>
                     </tr>
                     {expanded && (
@@ -180,7 +181,7 @@ export function AdjustmentsTab() {
                                     <td className="py-1.5 text-right tabular-nums">
                                       {l.afterQty} <span className="text-muted">{l.unit}</span>
                                     </td>
-                                    <td className="py-1.5 text-right tabular-nums">{money(l.valueChange)}</td>
+                                    <td className="py-1.5 text-right tabular-nums">{money(l.valueChange, currency)}</td>
                                   </tr>
                                 ))}
                               </tbody>

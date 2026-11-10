@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import com.pos.auth.AuthUser;
+import com.pos.common.SignedInUser;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -98,7 +98,7 @@ public class AuditService {
 
     private static Actor currentActor() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof AuthUser u) {
+        if (auth != null && auth.getPrincipal() instanceof SignedInUser u) {
             return new Actor(u.id(), u.username(), u.branchId());
         }
         return null;

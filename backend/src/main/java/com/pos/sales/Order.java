@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.pos.auth.User;
+import com.pos.branch.Branch;
 import com.pos.tax.TaxMode;
-import com.pos.inventory.Branch;
 import com.pos.inventory.Storage;
 import com.pos.payment.Payment;
 
@@ -77,6 +77,28 @@ public class Order {
     /** Item discounts on all lines. */
     @Column(name = "item_discount", nullable = false, precision = 12, scale = 2)
     private BigDecimal itemDiscount = BigDecimal.ZERO;
+
+    /** Promotions on all lines. */
+    @Column(name = "promo_discount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal promoDiscount = BigDecimal.ZERO;
+
+    /** The order promotion (coupon or automatic), before the cashier's order discount. */
+    @Column(name = "order_promo_discount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal orderPromoDiscount = BigDecimal.ZERO;
+
+    /** The coupon code the customer gave, as typed in the system. */
+    @Column(name = "coupon_code", length = 40)
+    private String couponCode;
+
+    /** Loyalty points used on this sale, what they took off, and points earned once it was paid. */
+    @Column(name = "points_redeemed", nullable = false)
+    private int pointsRedeemed;
+
+    @Column(name = "points_discount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal pointsDiscount = BigDecimal.ZERO;
+
+    @Column(name = "points_earned", nullable = false)
+    private int pointsEarned;
 
     @Column(name = "tax_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal taxAmount;
@@ -149,6 +171,14 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
     private List<OrderReturn> returns = new ArrayList<>();
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id")
+    private List<OrderPromotion> promotions = new ArrayList<>();
+
+    public void addPromotion(Long promotionId, Long couponCodeId, String code, String name, String kind, BigDecimal amount) {
+        promotions.add(new OrderPromotion(this, promotionId, couponCodeId, code, name, kind, amount));
+    }
 
     public void addReturn(OrderReturn ret) {
         ret.setOrder(this);

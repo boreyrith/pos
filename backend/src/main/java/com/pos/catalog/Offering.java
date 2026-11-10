@@ -10,6 +10,7 @@ import java.util.Map;
 
 import org.hibernate.annotations.BatchSize;
 
+import com.pos.common.OfferingType;
 import com.pos.tax.TaxRate;
 
 import jakarta.persistence.CascadeType;

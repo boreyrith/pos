@@ -13,8 +13,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pos.catalog.OfferingType;
-import com.pos.settings.SettingsService;
+import com.pos.common.OfferingType;
 import com.pos.currency.CurrencyService;
 import com.pos.report.ReportDtos.CashByCurrency;
 import com.pos.report.ReportDtos.DailySales;
@@ -25,6 +24,7 @@ import com.pos.report.ReportDtos.Kpis;
 import com.pos.report.ReportDtos.LowStockItem;
 import com.pos.report.ReportDtos.Payables;
 import com.pos.report.ReportDtos.TopCustomer;
+import com.pos.settings.SettingsService;
 
 /**
  * The dashboard. Figures come from the same engine as the Reports module ({@link ReportsService}),

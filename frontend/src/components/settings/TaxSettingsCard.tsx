@@ -137,7 +137,7 @@ function TaxSettingsForm({ settings }: { settings: TaxSettings }) {
       null,
       0,
     );
-    const currency = store.data?.currency ?? "USD";
+    const currency = store.data?.currency;
     const vars = {
       price: money(10, currency),
       total: money(x.total, currency),

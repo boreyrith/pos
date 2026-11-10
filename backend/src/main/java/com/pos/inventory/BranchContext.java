@@ -9,6 +9,8 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.pos.auth.AuthUser;
+import com.pos.branch.Branch;
+import com.pos.branch.BranchRepository;
 import com.pos.common.ApiException;
 
 /**

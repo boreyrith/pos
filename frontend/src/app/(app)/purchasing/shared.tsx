@@ -10,6 +10,8 @@ import { useStoreSettings } from "@/lib/queries";
 import type { InvoiceStatus, Page, PurchaseOrderSummary, PurchaseStatus, Vendor, VendorInvoice, VendorPaymentMethod } from "@/lib/types";
 import { msg, useT } from "@/lib/i18n";
 
+import { AccountSelect, useAccountOptions } from "../accounting/shared";
+
 export const PO_STATUS: Record<PurchaseStatus, { label: string; tone: "neutral" | "primary" | "warning" | "success" | "danger" }> = {
   DRAFT: { label: msg("Draft"), tone: "neutral" },
   ORDERED: { label: msg("Ordered"), tone: "primary" },
@@ -48,7 +50,7 @@ export function useVendors() {
 export function useRefreshPurchasing() {
   const queryClient = useQueryClient();
   return () => {
-    for (const key of ["vendors", "purchase-orders", "vendor-invoices", "payables", "offerings", "movements", "dashboard"]) {
+    for (const key of ["vendors", "purchase-orders", "vendor-invoices", "payables", "offerings", "movements", "dashboard", "accounting", "journal"]) {
       queryClient.invalidateQueries({ queryKey: [key] });
     }
   };
@@ -83,6 +85,7 @@ export function InvoiceDialog({
     subtotal: suggested != null ? suggested.toFixed(2) : "",
     tax: "0",
     note: "",
+    expenseAccountId: "",
   });
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const vendor = vendors.data?.find((v) => String(v.id) === form.vendorId);
@@ -91,6 +94,7 @@ export function InvoiceDialog({
     queryFn: () => api<Page<PurchaseOrderSummary>>(`/purchase-orders${queryString({ vendorId: form.vendorId, size: 50 })}`),
     enabled: form.vendorId !== "" && !purchaseOrderId,
   });
+  const expenseAccounts = useAccountOptions("expense", !form.purchaseOrderId);
   const subtotal = Number(form.subtotal) || 0;
   const tax = Number(form.tax) || 0;
   const save = useMutation({
@@ -106,6 +110,7 @@ export function InvoiceDialog({
           subtotal,
           tax,
           note: form.note.trim() || null,
+          expenseAccountId: !form.purchaseOrderId && form.expenseAccountId ? Number(form.expenseAccountId) : null,
         },
       }),
     onSuccess: () => {
@@ -114,7 +119,7 @@ export function InvoiceDialog({
     },
   });
   const errors = save.error instanceof ApiError ? save.error.fieldErrors : {};
-  const currency = store.data?.currency ?? "USD";
+  const currency = store.data?.currency;
 
   return (
     <Modal open onClose={onClose} title={t("Record vendor invoice")}>
@@ -152,6 +157,18 @@ export function InvoiceDialog({
                     </option>
                   ))}
               </Select>
+            </Field>
+          </div>
+        )}
+        {!form.purchaseOrderId && (
+          <div className="col-span-2">
+            <Field label={t("Expense account")} hint={t("A bill without a purchase order (rent, electricity...) is booked to this account")}>
+              <AccountSelect
+                options={expenseAccounts.data}
+                value={form.expenseAccountId}
+                onChange={set("expenseAccountId")}
+                empty={t("General expenses")}
+              />
             </Field>
           </div>
         )}
@@ -202,13 +219,22 @@ export function PaymentDialog({ invoice, onClose }: { invoice: VendorInvoice; on
   const [paidOn, setPaidOn] = useState(today);
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
+  const [moneyAccountId, setMoneyAccountId] = useState("");
+  const moneyAccounts = useAccountOptions("money");
   const value = Number(amount);
-  const currency = store.data?.currency ?? "USD";
+  const currency = store.data?.currency;
   const save = useMutation({
     mutationFn: () =>
       api<VendorInvoice>(`/vendor-invoices/${invoice.id}/payments`, {
         method: "POST",
-        json: { amount: value, method, paidOn, reference: reference.trim() || null, note: note.trim() || null },
+        json: {
+          amount: value,
+          method,
+          paidOn,
+          reference: reference.trim() || null,
+          note: note.trim() || null,
+          moneyAccountId: moneyAccountId ? Number(moneyAccountId) : null,
+        },
       }),
     onSuccess: () => {
       refresh();
@@ -242,6 +268,11 @@ export function PaymentDialog({ invoice, onClose }: { invoice: VendorInvoice; on
             ))}
           </Select>
         </Field>
+        <div className="col-span-2">
+          <Field label={t("Paid from")} hint={t("Empty: the branch's cash for cash, Bakong for KHQR, otherwise the bank account")}>
+            <AccountSelect options={moneyAccounts.data} value={moneyAccountId} onChange={setMoneyAccountId} empty={t("By payment method")} />
+          </Field>
+        </div>
         <Field label={t("Reference")} hint={t("Bank transaction or cheque number")}>
           <Input maxLength={100} value={reference} onChange={(e) => setReference(e.target.value)} />
         </Field>

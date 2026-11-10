@@ -9,6 +9,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import com.pos.common.ApiException;
+import com.pos.common.OfferingType;
 
 class PackageExpanderTest {
 

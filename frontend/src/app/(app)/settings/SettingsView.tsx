@@ -46,13 +46,6 @@ const SECTIONS = [
     hint: msg("Version, database, sign-in and sessions, sales timers and background jobs"),
     any: ["SETTINGS_VIEW"] as Permission[],
   },
-  {
-    key: "manual",
-    label: msg("User manual"),
-    hint: msg("How to sell, take payment, look after stock, buy from vendors, read the reports and run the system"),
-    // Everyone signed in can read it.
-    any: [] as Permission[],
-  },
 ];
 
 /** Tabs that were merged into another, so old links still land in the right place. */
@@ -73,7 +66,7 @@ export function SettingsView() {
   const router = useRouter();
   const pathname = usePathname();
   const user = useUser();
-  const sections = SECTIONS.filter((s) => s.any.length === 0 || hasPermission(user, ...s.any));
+  const sections = SECTIONS.filter((s) => hasPermission(user, ...s.any));
   const tab = params.get("tab") ?? "";
   const section =
     sections.find((s) => s.key === (MOVED[tab] ?? tab)) ?? sections[0];
@@ -109,19 +102,6 @@ export function SettingsView() {
           {section.key === "general" && <CompanyPanel />}
           {section.key === "branches" && <LocationsPanel />}
           {section.key === "system" && <SystemPanel />}
-          {section.key === "manual" && (
-            <div className="flex flex-col gap-2">
-              <a href="/manual/index.html" target="_blank" rel="noopener" className="self-end text-sm text-primary hover:underline">
-                {t("Open in a new tab")}
-              </a>
-              {/* The manual is its own page (public/manual, built from docs/user-manual.html). */}
-              <iframe
-                src="/manual/index.html"
-                title={t("User manual")}
-                className="h-[calc(100vh-14rem)] min-h-[32rem] w-full rounded-xl border border-border bg-surface"
-              />
-            </div>
-          )}
           {section.key === "payments" && (
             <div className="flex flex-col gap-8">
               {hasPermission(user, "SETTINGS_VIEW") && (

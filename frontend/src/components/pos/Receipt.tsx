@@ -5,6 +5,7 @@ import { taxLabel } from "@/lib/pricing";
 import { logoUrl, useCurrencies } from "@/lib/queries";
 import type { Order, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n";
+import { tierLabel } from "@/components/TierBadge";
 
 /**
  * A printable 80mm receipt. Wrap in .print-area to print only this. Tax lines follow the order's
@@ -69,6 +70,12 @@ export function Receipt({ order, store }: { order: Order; store: StoreSettings }
             </div>
           ))}
           {item.priceOverridden && <div>  {t("Price changed (was {price})", { price: money(item.listPrice, order.currency) })}</div>}
+          {item.promoDiscount > 0 && (
+            <div className="flex justify-between gap-2">
+              <span className="min-w-0">  {item.promotionName}</span>
+              <span>-{money(item.promoDiscount, order.currency)}</span>
+            </div>
+          )}
           {item.itemDiscount > 0 && (
             <div className="flex justify-between">
               <span>  {t("Discount")}{item.itemDiscountType === "PERCENT" ? ` ${item.itemDiscountValue}%` : ""}</span>
@@ -80,12 +87,21 @@ export function Receipt({ order, store }: { order: Order; store: StoreSettings }
       ))}
       <hr className="my-2 border-dashed border-black" />
       <Row label={exclusive ? t("Subtotal (excl. {vat})", { vat }) : t("Subtotal")} value={money(order.subtotal, order.currency)} />
+      {order.promoDiscount > 0 && <Row label={t("Promotions")} value={`-${money(order.promoDiscount, order.currency)}`} />}
       {order.itemDiscount > 0 && <Row label={t("Item discounts")} value={`-${money(order.itemDiscount, order.currency)}`} />}
+      {order.promotions
+        .filter((p) => p.kind === "ORDER_DISCOUNT")
+        .map((p) => (
+          <Row key={p.promotionId} label={p.code ? `${p.name} (${p.code})` : p.name} value={`-${money(p.amount, order.currency)}`} />
+        ))}
       {order.discountAmount > 0 && (
         <Row
           label={`${order.itemDiscount > 0 ? t("Order discount") : t("Discount")}${order.discountType === "PERCENT" ? ` ${order.discountValue}%` : ""}`}
           value={`-${money(order.discountAmount, order.currency)}`}
         />
+      )}
+      {order.pointsDiscount > 0 && (
+        <Row label={t("{n} points", { n: order.pointsRedeemed.toLocaleString() })} value={`-${money(order.pointsDiscount, order.currency)}`} />
       )}
       {exclusive && order.taxAmount > 0 && <Row label={t("Taxable amount")} value={money(order.taxableAmount, order.currency)} />}
       {order.taxes
@@ -144,6 +160,14 @@ export function Receipt({ order, store }: { order: Order; store: StoreSettings }
         </>
       )}
       <hr className="my-2 border-dashed border-black" />
+      {order.customerPoints != null && (order.pointsEarned > 0 || order.pointsRedeemed > 0) && (
+        <>
+          {order.customerTier && <Row label={t("Member tier")} value={t(tierLabel(order.customerTier))} />}
+          {order.pointsEarned > 0 && <Row label={t("Points earned")} value={`+${order.pointsEarned.toLocaleString()}`} />}
+          <Row label={t("Points balance")} value={order.customerPoints.toLocaleString()} />
+          <hr className="my-2 border-dashed border-black" />
+        </>
+      )}
       {store.receiptFooter && <div className="text-center whitespace-pre-line">{store.receiptFooter}</div>}
     </div>
   );

@@ -83,26 +83,29 @@ public final class PurchasingDtos {
 
     // --- invoices and payments
 
+    /** {@code expenseAccountId}: without a purchase order, the expense account it is booked to. */
     public record InvoiceRequest(@NotNull Long vendorId, Long purchaseOrderId, @NotBlank @Size(max = 60) String invoiceNumber,
                                  @NotNull LocalDate invoiceDate, LocalDate dueDate,
                                  @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal subtotal,
                                  @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal tax,
-                                 @Size(max = 255) String note) {
+                                 @Size(max = 255) String note, Long expenseAccountId) {
     }
 
+    /** {@code moneyAccountId}: the cash or bank account it was paid from (else chosen by method). */
     public record PaymentRequest(@NotNull @DecimalMin(value = "0.01") @Digits(integer = 10, fraction = 2) BigDecimal amount,
                                  @NotNull VendorPaymentMethod method, @NotNull LocalDate paidOn,
-                                 @Size(max = 100) String reference, @Size(max = 255) String note) {
+                                 @Size(max = 100) String reference, @Size(max = 255) String note, Long moneyAccountId) {
     }
 
     public record PaymentDto(Long id, BigDecimal amount, VendorPaymentMethod method, LocalDate paidOn, String reference,
-                             String note, String createdBy, Instant createdAt) {
+                             String note, String createdBy, Instant createdAt, String moneyAccount) {
     }
 
     public record InvoiceDto(Long id, Long vendorId, String vendorName, Long purchaseOrderId, String poNumber,
                              String invoiceNumber, LocalDate invoiceDate, LocalDate dueDate, BigDecimal subtotal,
                              BigDecimal tax, BigDecimal total, BigDecimal paid, BigDecimal balance, InvoiceStatus status,
-                             boolean overdue, String note, String createdBy, Instant createdAt, List<PaymentDto> payments) {
+                             boolean overdue, String note, String createdBy, Instant createdAt, List<PaymentDto> payments,
+                             Long expenseAccountId, String expenseAccount) {
     }
 
     /** Owed to vendors in total, the overdue part, and orders still to arrive. */

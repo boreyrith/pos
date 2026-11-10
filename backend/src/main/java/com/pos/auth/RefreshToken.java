@@ -31,6 +31,11 @@ public class RefreshToken {
     @JoinColumn(name = "user_id")
     private User user;
 
+    /** The sign-in this token belongs to; null for tokens from before sessions were kept. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "session_id")
+    private UserSession session;
+
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;
 
@@ -50,8 +55,9 @@ public class RefreshToken {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
-    public RefreshToken(User user, String tokenHash, Instant expiresAt) {
+    public RefreshToken(User user, UserSession session, String tokenHash, Instant expiresAt) {
         this.user = user;
+        this.session = session;
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;
     }

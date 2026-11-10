@@ -16,6 +16,7 @@ import { refundShare, taxLabel } from "@/lib/pricing";
 import { useCurrencies, useStoreSettings } from "@/lib/queries";
 import type { Order } from "@/lib/types";
 import { useT } from "@/lib/i18n";
+import { TierBadge } from "@/components/TierBadge";
 
 export function OrderDetail({ id }: { id: number }) {
   const t = useT();
@@ -149,6 +150,11 @@ export function OrderDetail({ id }: { id: number }) {
                           ))}
                         </ul>
                       )}
+                      {i.promoDiscount > 0 && (
+                        <div className="text-xs text-success">
+                          {t("Promotion {name}: -{amount}", { name: i.promotionName ?? "", amount: money(i.promoDiscount, o.currency) })}
+                        </div>
+                      )}
                       {i.itemDiscount > 0 && (
                         <div className="text-xs text-success">
                           {t("Item discount")}
@@ -182,12 +188,25 @@ export function OrderDetail({ id }: { id: number }) {
               </tbody>
               <tfoot className="border-t border-border text-sm">
                 <SumRow label={o.taxMode === "EXCLUSIVE" ? t("Subtotal (excl. {vat})", { vat }) : t("Subtotal")} value={money(o.subtotal, o.currency)} />
+                {o.promoDiscount > 0 && <SumRow label={t("Promotions")} value={`-${money(o.promoDiscount, o.currency)}`} />}
                 {o.itemDiscount > 0 && <SumRow label={t("Item discounts")} value={`-${money(o.itemDiscount, o.currency)}`} />}
+                {o.promotions
+                  .filter((p) => p.kind === "ORDER_DISCOUNT")
+                  .map((p) => (
+                    <SumRow
+                      key={p.promotionId}
+                      label={p.code ? t("{name}, coupon {code}", { name: p.name, code: p.code }) : p.name}
+                      value={`-${money(p.amount, o.currency)}`}
+                    />
+                  ))}
                 {o.discountAmount > 0 && (
                   <SumRow
                     label={`${o.itemDiscount > 0 ? t("Order discount") : t("Discount")}${o.discountType === "PERCENT" ? ` (${o.discountValue}%)` : ""}`}
                     value={`-${money(o.discountAmount, o.currency)}`}
                   />
+                )}
+                {o.pointsDiscount > 0 && (
+                  <SumRow label={t("{n} points", { n: o.pointsRedeemed.toLocaleString() })} value={`-${money(o.pointsDiscount, o.currency)}`} />
                 )}
                 {o.taxMode === "EXCLUSIVE" && o.taxAmount > 0 && (
                   <SumRow label={t("Taxable amount")} value={money(o.taxableAmount, o.currency)} />
@@ -288,7 +307,21 @@ export function OrderDetail({ id }: { id: number }) {
                 o.customerName
               )}
               {!o.walkIn && o.customerPhone && <span className="text-muted"> · {o.customerPhone}</span>}
+              {!o.walkIn && <TierBadge tier={o.customerTier} className="ml-2 align-middle" />}
             </dd>
+            {(o.pointsEarned > 0 || o.pointsRedeemed > 0) && (
+              <>
+                <dt className="text-muted">{t("Loyalty points")}</dt>
+                <dd>
+                  {[
+                    o.pointsEarned > 0 ? t("+{n} earned", { n: o.pointsEarned.toLocaleString() }) : null,
+                    o.pointsRedeemed > 0 ? t("{n} used", { n: o.pointsRedeemed.toLocaleString() }) : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </dd>
+              </>
+            )}
             <dt className="text-muted">{t("Cashier")}</dt>
             <dd>{o.cashierName}</dd>
             <dt className="text-muted">{t("Created")}</dt>

@@ -1,6 +1,7 @@
 package com.pos.user;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -26,12 +27,16 @@ import com.pos.audit.AuditService;
 import com.pos.audit.Changes;
 import com.pos.auth.AuthDtos.UserDto;
 import com.pos.auth.AuthUser;
-import com.pos.auth.RefreshTokenRepository;
+import com.pos.auth.Gender;
+import com.pos.auth.PersonalDetails;
+import com.pos.auth.SessionService;
+import com.pos.auth.UserSession;
 import com.pos.auth.User;
 import com.pos.auth.UserRepository;
+import com.pos.branch.Branch;
+import com.pos.branch.BranchRepository;
 import com.pos.common.ApiException;
-import com.pos.inventory.Branch;
-import com.pos.inventory.BranchRepository;
+import com.pos.common.StoreTimeZone;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -58,31 +63,46 @@ public class UserController {
             @Size(max = 50) String phone,
             @NotNull Long roleId,
             @NotNull Long branchId,
-            Boolean mustChangePassword) {
+            Boolean mustChangePassword,
+            @Size(max = 100) String nameKm,
+            @Size(max = 100) String nameLatin,
+            Gender gender,
+            LocalDate dateOfBirth) {
+        PersonalDetails details() {
+            return new PersonalDetails(nameKm, nameLatin, gender, dateOfBirth, phone, email);
+        }
     }
 
+    /** {@code fullName} is the display name; the personal details are optional. */
     public record UpdateUserRequest(@NotBlank @Size(max = 100) String fullName, @Email @Size(max = 100) String email,
                                     @Size(max = 50) String phone, @NotNull Long roleId, @NotNull Boolean active,
-                                    @NotNull Long branchId) {
+                                    @NotNull Long branchId, @Size(max = 100) String nameKm, @Size(max = 100) String nameLatin,
+                                    Gender gender, LocalDate dateOfBirth) {
+        PersonalDetails details() {
+            return new PersonalDetails(nameKm, nameLatin, gender, dateOfBirth, phone, email);
+        }
     }
 
     public record ResetPasswordRequest(@NotBlank @Size(min = 8, max = 72) String password, Boolean mustChangePassword) {
     }
 
     private final UserRepository users;
-    private final RefreshTokenRepository refreshTokens;
+    private final SessionService sessions;
     private final PasswordEncoder passwordEncoder;
     private final BranchRepository branches;
     private final AuditService audit;
     private final RoleRepository roles;
     private final AccessService access;
+    private final StoreTimeZone storeTime;
 
-    public UserController(UserRepository users, RefreshTokenRepository refreshTokens, PasswordEncoder passwordEncoder,
-                          BranchRepository branches, AuditService audit, RoleRepository roles, AccessService access) {
+    public UserController(UserRepository users, SessionService sessions, PasswordEncoder passwordEncoder,
+                          BranchRepository branches, AuditService audit, RoleRepository roles, AccessService access,
+                          StoreTimeZone storeTime) {
+        this.storeTime = storeTime;
         this.roles = roles;
         this.access = access;
         this.users = users;
-        this.refreshTokens = refreshTokens;
+        this.sessions = sessions;
         this.passwordEncoder = passwordEncoder;
         this.branches = branches;
         this.audit = audit;
@@ -120,8 +140,7 @@ public class UserController {
         AccessRules.requireBranch(me, req.branchId());
         User user = new User(req.username(), passwordEncoder.encode(req.password()), req.fullName().trim(), role,
                 branch(req.branchId()));
-        user.setEmail(blankToNull(req.email()));
-        user.setPhone(blankToNull(req.phone()));
+        req.details().applyTo(user, new Changes(), today());
         user.setMustChangePassword(req.mustChangePassword() == null || req.mustChangePassword());
         users.saveAndFlush(user);
         audit.log(AuditAction.USER_CREATED, "User", user.getId(), "Created " + user.getUsername() + " ("
@@ -150,9 +169,7 @@ public class UserController {
         }
         Branch branch = req.branchId().equals(user.getBranch().getId()) ? user.getBranch() : branch(req.branchId());
         Changes changes = new Changes()
-                .add("Name", user.getFullName(), req.fullName().trim())
-                .add("Email", user.getEmail(), blankToNull(req.email()))
-                .add("Phone", user.getPhone(), blankToNull(req.phone()))
+                .add("Display name", user.getFullName(), req.fullName().trim())
                 .add("Role", user.getRole().getName(), role.getName())
                 .add("Branch", user.getBranch().getName(), branch.getName())
                 .add("Active", user.isActive() ? "yes" : "no", req.active() ? "yes" : "no");
@@ -160,14 +177,13 @@ public class UserController {
                 || !user.getBranch().getId().equals(branch.getId());
 
         user.setFullName(req.fullName().trim());
-        user.setEmail(blankToNull(req.email()));
-        user.setPhone(blankToNull(req.phone()));
+        req.details().applyTo(user, changes, today());
         user.setRole(role);
         user.setActive(req.active());
         user.setBranch(branch);
         // Role, branch and status apply from their next request; other devices are signed out too.
         if (signOut) {
-            refreshTokens.revokeAllForUser(user.getId());
+            sessions.endAll(user.getId(), UserSession.EndReason.ACCOUNT_CHANGED, me.id());
         }
         access.evictUser(user.getId());
         if (!changes.isEmpty()) {
@@ -175,6 +191,10 @@ public class UserController {
                     + changes.describe(), changes);
         }
         return UserDto.from(user);
+    }
+
+    private LocalDate today() {
+        return LocalDate.now(storeTime.timezone());
     }
 
     /** Sets a new password and signs them out everywhere. Usually they must choose their own next. */
@@ -190,7 +210,7 @@ public class UserController {
         user.setPasswordChangedAt(Instant.now());
         user.setFailedLogins(0);
         user.setLockedUntil(null);
-        refreshTokens.revokeAllForUser(user.getId());
+        sessions.endAll(user.getId(), UserSession.EndReason.ADMIN, me.id());
         audit.log(AuditAction.USER_PASSWORD_RESET, "User", user.getId(), "Reset password for " + user.getUsername()
                 + (user.isMustChangePassword() ? " (must change it at next sign-in)" : ""));
         return UserDto.from(user);
@@ -208,14 +228,14 @@ public class UserController {
         return UserDto.from(user);
     }
 
-    /** Ends their sessions on every device. Their current screen keeps working for up to 15 minutes. */
+    /** Ends their sessions on every device, at once. */
     @PostMapping("/{id}/sign-out")
     @Transactional
     @PreAuthorize("hasAuthority('USERS_MANAGE')")
     public UserDto signOutEverywhere(@PathVariable Long id, @AuthenticationPrincipal AuthUser me) {
         User user = find(id);
         AccessRules.requireManageable(me, user);
-        int revoked = refreshTokens.revokeAllForUser(user.getId());
+        int revoked = sessions.endAll(user.getId(), UserSession.EndReason.ADMIN, me.id());
         audit.log(AuditAction.USER_SESSIONS_REVOKED, "User", user.getId(), "Signed " + user.getUsername()
                 + " out everywhere (" + revoked + " session" + (revoked == 1 ? "" : "s") + ")");
         return UserDto.from(user);
@@ -235,9 +255,5 @@ public class UserController {
 
     private Role role(Long id) {
         return roles.findById(id).orElseThrow(() -> ApiException.badRequest("That role doesn't exist"));
-    }
-
-    private static String blankToNull(String s) {
-        return s == null || s.isBlank() ? null : s.trim();
     }
 }

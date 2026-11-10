@@ -64,6 +64,13 @@ public class OrderReturn {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** Earned points taken back, and used points given back, with this return. */
+    @Column(name = "points_reversed", nullable = false)
+    private int pointsReversed;
+
+    @Column(name = "points_restored", nullable = false)
+    private int pointsRestored;
+
     @OneToMany(mappedBy = "orderReturn", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
     private List<OrderReturnLine> lines = new ArrayList<>();

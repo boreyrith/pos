@@ -101,6 +101,45 @@ class RefreshTokenIT {
         assertThat(refresh(second).status()).isEqualTo(401);
     }
 
+    @Test
+    void rememberMeDecidesWhetherTheCookieOutlivesTheBrowser() {
+        // Remembered (the default): the cookie lasts the refresh lifetime, and keeps it on every refresh.
+        String remembered = setCookie("POST", "/auth/login", Map.of("username", "tech", "password", "tech12345"), null);
+        assertThat(remembered).contains("Max-Age=604800").contains("HttpOnly");
+        String renewed = setCookie("POST", "/auth/refresh", null, value(remembered));
+        assertThat(renewed).contains("Max-Age=604800");
+
+        // Not remembered: a cookie with no lifetime, which the browser drops when it closes; refreshes keep it so.
+        String shared = setCookie("POST", "/auth/login", Map.of("username", "tech", "password", "tech12345", "remember", false), null);
+        assertThat(shared).doesNotContain("Max-Age").doesNotContain("Expires").contains("HttpOnly");
+        String sharedRenewed = setCookie("POST", "/auth/refresh", null, value(shared));
+        assertThat(sharedRenewed).startsWith("pos_refresh=").doesNotContain("Max-Age").doesNotContain("Expires");
+        assertThat(jdbc.sql("""
+                        SELECT s.remember FROM user_sessions s JOIN refresh_tokens t ON t.session_id = s.id
+                        WHERE t.token_hash = SHA2(?, 256)
+                        """).param(value(sharedRenewed)).query(Boolean.class).optional()).hasValueSatisfying(r -> assertThat(r).isFalse());
+    }
+
+    /** The pos_refresh Set-Cookie header of the response. */
+    private String setCookie(String method, String path, Object body, String refreshCookie) {
+        var spec = http.method(HttpMethod.valueOf(method)).uri(path);
+        if (refreshCookie != null) {
+            spec = spec.header(HttpHeaders.COOKIE, "pos_refresh=" + refreshCookie);
+        }
+        if (body != null) {
+            spec = spec.contentType(MediaType.APPLICATION_JSON).body(JSON.writeValueAsString(body));
+        }
+        return spec.exchange((req, res) -> {
+            assertThat(res.getStatusCode().value()).isEqualTo(200);
+            List<String> all = res.getHeaders().get(HttpHeaders.SET_COOKIE);
+            return all == null ? null : all.stream().filter(c -> c.startsWith("pos_refresh=")).findFirst().orElse(null);
+        });
+    }
+
+    private static String value(String setCookie) {
+        return setCookie.substring("pos_refresh=".length(), setCookie.indexOf(';'));
+    }
+
     private long reuseAlerts(String username) {
         return jdbc.sql("SELECT COUNT(*) FROM audit_logs WHERE action = 'SESSION_REUSE_DETECTED' AND username = ?")
                 .param(username).query(Long.class).single();

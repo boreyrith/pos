@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import com.pos.common.OfferingType;
+
 public interface OfferingRepository extends JpaRepository<Offering, Long> {
 
     /**
@@ -21,10 +23,10 @@ public interface OfferingRepository extends JpaRepository<Offering, Long> {
             select o from Offering o
             where o.type in :types
               and (:activeOnly = false or o.active = true)
-              and (:forSale = false or (o.active = true and (o.type <> com.pos.catalog.OfferingType.ITEM or o.sellable = true)))
+              and (:forSale = false or (o.active = true and (o.type <> com.pos.common.OfferingType.ITEM or o.sellable = true)))
               and (:categoryId is null or o.category.id = :categoryId)
               and (:anyId = true or o.id in :ids)
-              and (:lowStock = false or (o.type in (com.pos.catalog.OfferingType.PRODUCT, com.pos.catalog.OfferingType.ITEM)
+              and (:lowStock = false or (o.type in (com.pos.common.OfferingType.PRODUCT, com.pos.common.OfferingType.ITEM)
                    and (select coalesce(sum(l.quantity), 0) from StockLevel l
                         where l.offering = o and l.storage.id in :storageIds) <= o.lowStockThreshold))
               and (:q is null

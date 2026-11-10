@@ -7,17 +7,15 @@ import { hasPermission, useUser } from "@/lib/auth";
 import type { Permission } from "@/lib/types";
 import { msg, useT } from "@/lib/i18n";
 
-import { CustomersView } from "../customers/CustomersView";
 import { OrdersList } from "./OrdersList";
 import { ReturnsTab } from "./ReturnsTab";
 
-const TABS: { key: "invoices" | "returns" | "customers"; label: string; any: Permission[] }[] = [
+const TABS: { key: "invoices" | "returns"; label: string; any: Permission[] }[] = [
   { key: "invoices", label: msg("Invoices"), any: ["ORDERS_VIEW"] },
   { key: "returns", label: msg("Returns & refunds"), any: ["ORDERS_VIEW"] },
-  { key: "customers", label: msg("Customers"), any: ["CUSTOMERS_VIEW"] },
 ];
 
-/** Sales: invoices (orders), returns and refunds, and customers, each tab shown if the role can open it. */
+/** Sales: invoices (orders) and returns and refunds, each tab shown if the role can open it. Customers have their own page. */
 export function SalesView() {
   const t = useT();
   const user = useUser();
@@ -52,7 +50,6 @@ export function SalesView() {
           </div>
           {tab.key === "invoices" && <OrdersList />}
           {tab.key === "returns" && <ReturnsTab />}
-          {tab.key === "customers" && <CustomersView />}
         </>
       )}
     </div>

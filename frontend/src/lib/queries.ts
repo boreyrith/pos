@@ -13,6 +13,11 @@ export function useStoreSettings() {
   });
 }
 
+/** The store's base currency; undefined until the settings have loaded (`money` then shows no symbol). */
+export function useCurrency() {
+  return useStoreSettings().data?.currency;
+}
+
 export function useCategories() {
   return useQuery({
     queryKey: ["categories"],

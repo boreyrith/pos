@@ -3,7 +3,7 @@ package com.pos.tax;
 import java.math.BigDecimal;
 import java.util.Set;
 
-import com.pos.catalog.OfferingType;
+import com.pos.common.OfferingType;
 
 /**
  * The tax configuration in force: mode, the label shown for VAT ("VAT"), the highest rate allowed,

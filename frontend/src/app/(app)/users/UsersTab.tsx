@@ -5,6 +5,7 @@ import { History, KeyRound, LogOut, Plus, Unlock } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { PersonalDetailsFields, detailsForm, detailsJson } from "@/components/account/PersonalDetailsFields";
 import { Badge, Button, Card, ErrorNote, Field, Input, Modal, Select, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { hasPermission, useUser } from "@/lib/auth";
@@ -159,11 +160,10 @@ function CreateUserDialog({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const me = useUser();
   const { branches } = useBranch();
+  const [details, setDetails] = useState(detailsForm());
   const [form, setForm] = useState({
     username: "",
     fullName: "",
-    email: "",
-    phone: "",
     roleId: "",
     branchId: String(me.branchId),
     password: "",
@@ -174,7 +174,7 @@ function CreateUserDialog({ onClose }: { onClose: () => void }) {
     mutationFn: () =>
       api<User>("/users", {
         method: "POST",
-        json: { ...form, roleId: Number(form.roleId), branchId: Number(form.branchId), email: form.email || null, phone: form.phone || null },
+        json: { ...form, ...detailsJson(details), roleId: Number(form.roleId), branchId: Number(form.branchId) },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -183,7 +183,7 @@ function CreateUserDialog({ onClose }: { onClose: () => void }) {
   });
   const errors = save.error instanceof ApiError ? save.error.fieldErrors : {};
   return (
-    <Modal open onClose={onClose} title={t("Add user")}>
+    <Modal open onClose={onClose} title={t("Add user")} wide>
       <form
         className="grid grid-cols-2 gap-4"
         onSubmit={(e) => {
@@ -192,8 +192,8 @@ function CreateUserDialog({ onClose }: { onClose: () => void }) {
         }}
       >
         <div className="col-span-2">
-          <Field label={t("Full name")} error={errors.fullName}>
-            <Input autoFocus required value={form.fullName} onChange={(e) => set("fullName")(e.target.value)} />
+          <Field label={t("Display name")} hint={t("Shown on screens, receipts and in history")} error={errors.fullName}>
+            <Input autoFocus required maxLength={100} value={form.fullName} onChange={(e) => set("fullName")(e.target.value)} />
           </Field>
         </div>
         <Field label={t("Username")} error={errors.username} hint={t("Letters, numbers, dots, dashes")}>
@@ -202,13 +202,9 @@ function CreateUserDialog({ onClose }: { onClose: () => void }) {
         <Field label={t("Temporary password")} error={errors.password} hint={t("At least 8 characters")}>
           <Input type="password" autoComplete="new-password" required value={form.password} onChange={(e) => set("password")(e.target.value)} />
         </Field>
-        <Field label={t("Email")} error={errors.email}>
-          <Input type="email" value={form.email} onChange={(e) => set("email")(e.target.value)} />
-        </Field>
-        <Field label={t("Phone")} error={errors.phone}>
-          <Input value={form.phone} onChange={(e) => set("phone")(e.target.value)} />
-        </Field>
         <RoleBranchFields roleId={form.roleId} branchId={form.branchId} branches={branches} onRole={(v) => set("roleId")(v)} onBranch={(v) => set("branchId")(v)} />
+        <h3 className="col-span-2 -mb-1 text-sm font-semibold">{t("Personal details")}</h3>
+        <PersonalDetailsFields form={details} onChange={setDetails} errors={errors} />
         <label className="col-span-2 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={form.mustChangePassword} onChange={(e) => set("mustChangePassword")(e.target.checked)} />
           {t("They choose their own password when they first sign in")}
@@ -234,10 +230,9 @@ function ManageUserDialog({ user, self, onClose }: { user: User; self: boolean; 
   const queryClient = useQueryClient();
   const store = useStoreSettings();
   const { branches } = useBranch();
+  const [details, setDetails] = useState(detailsForm(user));
   const [form, setForm] = useState({
     fullName: user.fullName,
-    email: user.email ?? "",
-    phone: user.phone ?? "",
     roleId: String(user.role.id),
     branchId: String(user.branchId),
     active: user.active,
@@ -254,7 +249,7 @@ function ManageUserDialog({ user, self, onClose }: { user: User; self: boolean; 
     mutationFn: () =>
       api<User>(`/users/${user.id}`, {
         method: "PUT",
-        json: { ...form, roleId: Number(form.roleId), branchId: Number(form.branchId), email: form.email || null, phone: form.phone || null },
+        json: { ...form, ...detailsJson(details), roleId: Number(form.roleId), branchId: Number(form.branchId) },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -293,7 +288,7 @@ function ManageUserDialog({ user, self, onClose }: { user: User; self: boolean; 
             variant="secondary"
             size="sm"
             onClick={() => {
-              if (confirm(translate("Sign {fullName} out on every device? Their open screen keeps working for up to 15 minutes.", { fullName: user.fullName }))) action.mutate("sign-out");
+              if (confirm(translate("Sign {fullName} out on every device? They are signed out straight away.", { fullName: user.fullName }))) action.mutate("sign-out");
             }}
             loading={action.isPending && action.variables === "sign-out"}
           >
@@ -315,16 +310,10 @@ function ManageUserDialog({ user, self, onClose }: { user: User; self: boolean; 
         }}
       >
         <div className="col-span-2">
-          <Field label={t("Full name")} error={errors.fullName}>
-            <Input required value={form.fullName} onChange={(e) => set("fullName")(e.target.value)} />
+          <Field label={t("Display name")} hint={t("Shown on screens, receipts and in history")} error={errors.fullName}>
+            <Input required maxLength={100} value={form.fullName} onChange={(e) => set("fullName")(e.target.value)} />
           </Field>
         </div>
-        <Field label={t("Email")} error={errors.email}>
-          <Input type="email" value={form.email} onChange={(e) => set("email")(e.target.value)} />
-        </Field>
-        <Field label={t("Phone")} error={errors.phone}>
-          <Input value={form.phone} onChange={(e) => set("phone")(e.target.value)} />
-        </Field>
         <RoleBranchFields
           roleId={form.roleId}
           current={user.role.id}
@@ -340,6 +329,8 @@ function ManageUserDialog({ user, self, onClose }: { user: User; self: boolean; 
             {t("Account can sign in")}
           </label>
         )}
+        <h3 className="col-span-2 -mb-1 text-sm font-semibold">{t("Personal details")}</h3>
+        <PersonalDetailsFields form={details} onChange={setDetails} errors={errors} />
         {signsOut && (
           <p className="col-span-2 text-xs text-muted">{t("The change applies from their next action; they are also signed out on their other devices.")}</p>
         )}

@@ -3,7 +3,7 @@ package com.pos.sales;
 import java.math.BigDecimal;
 
 import com.pos.catalog.Offering;
-import com.pos.catalog.OfferingType;
+import com.pos.common.OfferingType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

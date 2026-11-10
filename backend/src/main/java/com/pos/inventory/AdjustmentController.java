@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pos.auth.AuthUser;
-import com.pos.catalog.OfferingType;
+import com.pos.common.OfferingType;
 import com.pos.common.PageResponse;
 import com.pos.inventory.AdjustmentService.AdjustmentDto;
 import com.pos.inventory.AdjustmentService.AdjustmentRequest;

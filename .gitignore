@@ -4,6 +4,8 @@
 !.env.example
 
 # Database dumps and backups (never commit customer data)
+# rclone.conf for off-site backups holds the remote's credentials
+deploy/rclone/
 *.sql.gz
 !deploy/sample-data/*.sql.gz
 /backup*.sql

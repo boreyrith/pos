@@ -9,13 +9,12 @@ import java.util.Base64;
 
 import org.junit.jupiter.api.Test;
 
-import com.pos.config.AppProperties;
 
 class SecretBoxTest {
 
     private static AppProperties props(String secretsKey, String jwtSecret) {
         return new AppProperties(new AppProperties.Jwt(jwtSecret, Duration.ofMinutes(15), Duration.ofDays(7), false, Duration.ofSeconds(30)), null, null,
-                secretsKey, null);
+                secretsKey, null, null);
     }
 
     private static final String KEY = Base64.getEncoder().encodeToString(new byte[32]);

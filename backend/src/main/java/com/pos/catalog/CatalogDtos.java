@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
-import com.pos.tax.TaxService;
+import com.pos.common.OfferingType;
 import com.pos.tax.TaxSettings;
 import com.pos.inventory.AdjustmentReason;
 
@@ -102,7 +102,7 @@ public final class CatalogDtos {
         private static OfferingDto from(Offering o, Map<Long, Integer> stock, TaxSettings taxSettings,
                                         List<PackDto> packs, List<ComponentDto> components, PackageInfo pkg) {
             var tax = o.getTaxRate();
-            var key = TaxService.keyFor(o, taxSettings);
+            var key = OfferingTaxes.keyFor(o, taxSettings);
             Category c = o.getCategory();
             Unit u = o.getUnit();
             boolean stocked = o.getType().tracksStock();

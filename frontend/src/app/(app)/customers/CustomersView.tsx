@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { CustomerDialog } from "@/components/customers/CustomerDialog";
 import { Badge, Button, Card, ErrorNote, Input, Pagination, Spinner } from "@/components/ui";
+import { TierBadge } from "@/components/TierBadge";
 import { api, queryString } from "@/lib/api";
 import { useCan } from "@/lib/auth";
 import { dateTime } from "@/lib/format";
@@ -14,7 +15,7 @@ import { useStoreSettings } from "@/lib/queries";
 import type { Customer, Page } from "@/lib/types";
 import { useT } from "@/lib/i18n";
 
-/** Sales > Customers: search by name, phone (any format), code or email. The Walk-in Customer is listed first. */
+/** Customers: search by name, phone (any format), code or email. The Walk-in Customer is listed first. */
 export function CustomersView() {
   const t = useT();
   const can = useCan();
@@ -87,6 +88,7 @@ export function CustomersView() {
                     </Link>
                     <span className="ml-2 inline-flex gap-1 align-middle">
                       {c.walkIn && <Badge tone="primary">{t("Default")}</Badge>}
+                      <TierBadge tier={c.tier} />
                       {!c.active && <Badge>{t("Inactive")}</Badge>}
                     </span>
                     <div className="font-mono text-xs text-muted">

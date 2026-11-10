@@ -1,6 +1,9 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 
-/** Customers are a tab of Sales; keep old links working. */
-export default function CustomersPage() {
-  redirect("/orders?tab=customers");
+import { CustomersPage } from "./CustomersPage";
+
+export const metadata: Metadata = { title: "Customers" };
+
+export default function Customers() {
+  return <CustomersPage />;
 }

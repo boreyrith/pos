@@ -9,6 +9,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import com.pos.common.AppProperties;
+
 /**
  * Stops a non-development start that would be unsafe: no signing key of its own means anyone with
  * the source code could forge sign-ins. Other risky settings are logged as warnings.

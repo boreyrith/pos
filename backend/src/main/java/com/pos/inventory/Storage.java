@@ -13,6 +13,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import com.pos.branch.Branch;
+
 /** A place stock is kept within a branch. Sales take stock from the branch's selling storage. */
 @Entity
 @Table(name = "storages")

@@ -2,7 +2,7 @@ package com.pos.settings;
 
 import java.time.Duration;
 
-import com.pos.config.AppProperties.KhqrMode;
+import com.pos.common.AppProperties.KhqrMode;
 
 /**
  * The KHQR settings in effect: what an admin saved under Settings > KHQR payments, or the server

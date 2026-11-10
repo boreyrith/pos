@@ -19,11 +19,17 @@ interface Case {
     tax: { rateId: number; name: string; rate: string; included: boolean };
     discountType?: DiscountType;
     discountValue?: string;
+    promoDiscount?: string;
   }[];
   discountType: DiscountType | null;
   discountValue: string | null;
+  orderPromo?: string;
+  points?: string;
   expected: Record<"subtotal" | "itemDiscount" | "discount" | "taxAdded" | "taxIncluded" | "total" | "taxableAmount" | "nonTaxableAmount", string> & {
-    lines: Record<"total" | "itemDiscount" | "discount" | "net" | "tax" | "paid", string>[];
+    promoDiscount?: string;
+    orderPromoDiscount?: string;
+    pointsDiscount?: string;
+    lines: (Record<"total" | "itemDiscount" | "discount" | "net" | "tax" | "paid", string> & { promoDiscount?: string })[];
   };
 }
 
@@ -40,9 +46,16 @@ describe("shared pricing cases", () => {
       tax: { ...l.tax, rate: Number(l.tax.rate) },
       discountType: l.discountType ?? null,
       discountValue: l.discountValue != null ? Number(l.discountValue) : 0,
+      promoDiscount: l.promoDiscount != null ? Number(l.promoDiscount) : 0,
     }));
-    const t = calculateTotals(lines, c.discountType, Number(c.discountValue ?? 0));
+    const t = calculateTotals(lines, c.discountType, Number(c.discountValue ?? 0), Number(c.orderPromo ?? 0), Number(c.points ?? 0));
     const e = c.expected;
+    // Promotion and points cases also pin down each layer.
+    if (e.promoDiscount != null) {
+      expect(t.promoDiscount).toBe(Number(e.promoDiscount));
+      expect(t.orderPromoDiscount).toBe(Number(e.orderPromoDiscount));
+      expect(t.pointsDiscount).toBe(Number(e.pointsDiscount));
+    }
     expect(t.subtotal).toBe(Number(e.subtotal));
     expect(t.discount).toBe(Number(e.discount));
     expect(t.itemDiscount).toBe(Number(e.itemDiscount));
@@ -54,6 +67,7 @@ describe("shared pricing cases", () => {
     t.lines.forEach((s, i) => {
       expect(s.discount).toBe(Number(e.lines[i].discount));
       expect(s.itemDiscount).toBe(Number(e.lines[i].itemDiscount));
+      if (e.lines[i].promoDiscount != null) expect(s.promoDiscount).toBe(Number(e.lines[i].promoDiscount));
       expect(s.net).toBe(Number(e.lines[i].net));
       expect(s.tax).toBe(Number(e.lines[i].tax));
       expect(s.paid).toBe(Number(e.lines[i].paid));
@@ -61,7 +75,7 @@ describe("shared pricing cases", () => {
   });
 });
 
-describe("taxKeyFor mirrors TaxService.keyFor", () => {
+describe("taxKeyFor mirrors OfferingTaxes.keyFor", () => {
   const vat = { type: "PRODUCT" as const, taxRateId: 1, taxRateName: "Standard", taxRate: 0.1 };
   const store = { taxLabel: "VAT", defaultTaxRateId: 1, taxScope: ["PRODUCT", "SERVICE", "ITEM", "PACKAGE"] as const };
 

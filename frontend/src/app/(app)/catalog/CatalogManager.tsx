@@ -21,7 +21,7 @@ import { api, queryString } from "@/lib/api";
 import { hasPermission, useUser } from "@/lib/auth";
 import { useBranch } from "@/lib/branch";
 import { duration, money } from "@/lib/format";
-import { useCategories, useStoreSettings } from "@/lib/queries";
+import { useCategories, useStoreSettings, useCurrency } from "@/lib/queries";
 import { offeringImageUrl } from "@/lib/queries";
 import type { Offering, OfferingType, Page } from "@/lib/types";
 
@@ -87,6 +87,7 @@ const NEW_LABEL: Record<OfferingType, string> = {
 export function CatalogManager() {
   const taxMode = useStoreSettings().data?.taxMode;
   const t = useT();
+  const currency = useCurrency();
   const user = useUser();
   const manager = hasPermission(user, "CATALOG_MANAGE");
   const adjusts = hasPermission(user, "STOCK_ADJUST");
@@ -379,7 +380,7 @@ export function CatalogManager() {
                         {o.categoryName ?? "—"}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                        {money(o.price)}
+                        {money(o.price, currency)}
                         {o.pricing === "HOURLY" ? (
                           <span className="text-xs text-muted"> / h</span>
                         ) : (
@@ -394,16 +395,16 @@ export function CatalogManager() {
                       <td className="px-4 py-3 text-right text-muted tabular-nums">
                         {o.packageInfo ? (
                           <>
-                            {money(o.packageInfo.separatePrice)}
+                            {money(o.packageInfo.separatePrice, currency)}
                             {o.packageInfo.separatePrice > o.price && (
                               <div className="text-xs text-success">
                                 {t("saves")}{" "}
-                                {money(o.packageInfo.separatePrice - o.price)}
+                                {money(o.packageInfo.separatePrice - o.price, currency)}
                               </div>
                             )}
                           </>
                         ) : (
-                          money(o.cost)
+                          money(o.cost, currency)
                         )}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { Button, ErrorNote, Field, Input, Modal, Select, Spinner, cx } from "@/components/ui";
 import { api, queryString } from "@/lib/api";
 import { money } from "@/lib/format";
-import { useCategories, useUnits } from "@/lib/queries";
+import { useCategories, useUnits, useCurrency } from "@/lib/queries";
 import type { CountSheetRow, OfferingType, StockAdjustment } from "@/lib/types";
 import { translate, useT } from "@/lib/i18n";
 
@@ -18,6 +18,7 @@ import { useEditableStorages } from "./useEditableStorages";
  */
 export function StockCountDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
+  const currency = useCurrency();
   const queryClient = useQueryClient();
   const categories = useCategories();
   const units = useUnits();
@@ -170,7 +171,7 @@ export function StockCountDialog({ onClose }: { onClose: () => void }) {
                       </td>
                       <td className={cx("px-3 py-1.5 text-right font-medium tabular-nums", diff === null ? "text-muted" : diff < 0 ? "text-danger" : diff > 0 ? "text-success" : "text-muted")}>
                         {diff === null ? "—" : diff === 0 ? "0" : `${diff > 0 ? "+" : ""}${diff}`}
-                        {diff !== null && diff !== 0 && <div className="text-xs font-normal">{money(diff * r.unitCost)}</div>}
+                        {diff !== null && diff !== 0 && <div className="text-xs font-normal">{money(diff * r.unitCost, currency)}</div>}
                       </td>
                     </tr>
                   );
@@ -186,7 +187,7 @@ export function StockCountDialog({ onClose }: { onClose: () => void }) {
           </span>
           <span className={cx("tabular-nums", value < 0 ? "text-danger" : value > 0 ? "text-success" : "text-muted")}>
             {t("Value of differences {value}", { value: value > 0 ? "+" : "" })}
-            {money(value)}
+            {money(value, currency)}
           </span>
         </div>
         <Field label={t("Note")}>
@@ -202,7 +203,7 @@ export function StockCountDialog({ onClose }: { onClose: () => void }) {
             disabled={entered.length === 0 || apply.isPending}
             loading={apply.isPending}
             onClick={() => {
-              if (confirm(translate("Apply the count? {length} of {length2} counted items will change (value {value}).", { length: differing.length, length2: entered.length, value: money(value) }))) apply.mutate();
+              if (confirm(translate("Apply the count? {length} of {length2} counted items will change (value {value}).", { length: differing.length, length2: entered.length, value: money(value, currency) }))) apply.mutate();
             }}
           >
             {t("Apply count")}

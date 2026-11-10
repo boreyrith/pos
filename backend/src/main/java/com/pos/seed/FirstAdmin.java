@@ -14,7 +14,7 @@ import com.pos.access.Role;
 import com.pos.access.RoleRepository;
 import com.pos.auth.User;
 import com.pos.auth.UserRepository;
-import com.pos.inventory.BranchRepository;
+import com.pos.branch.BranchRepository;
 
 /**
  * A new installation (outside development) has no accounts. If ADMIN_USERNAME and ADMIN_PASSWORD are

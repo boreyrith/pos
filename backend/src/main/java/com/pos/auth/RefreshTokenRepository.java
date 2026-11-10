@@ -18,6 +18,11 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     @Query("update RefreshToken t set t.rotatedAt = null where t.user.id = :userId and t.rotatedAt is not null")
     int clearRotation(Long userId);
 
+    /** Ends one session's tokens, without the reuse grace. */
+    @Modifying
+    @Query("update RefreshToken t set t.revoked = true, t.rotatedAt = null where t.session.id = :sessionId")
+    int revokeSession(String sessionId);
+
     /**
      * Signs the user out everywhere and takes away the reuse grace from tokens rotated just before,
      * so none of them can be used again. Returns how many sessions were active.

@@ -3,7 +3,7 @@ package com.pos.settings;
 import java.time.ZoneId;
 import java.util.EnumSet;
 
-import com.pos.catalog.OfferingType;
+import com.pos.common.OfferingType;
 import com.pos.tax.TaxSettings;
 
 /** A snapshot of the company settings, cached by {@link SettingsService}. */

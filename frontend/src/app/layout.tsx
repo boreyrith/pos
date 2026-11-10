@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 
 import { Providers } from "./providers";
 import "./globals.css";
@@ -8,7 +9,9 @@ export const metadata: Metadata = {
   description: "Point of sale for retail and food & beverage",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Rendered per request, so each page's scripts carry that request's CSP nonce (see proxy.ts).
+  await connection();
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full font-sans">

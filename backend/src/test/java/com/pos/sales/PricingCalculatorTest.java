@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import com.pos.common.ApiException;
 import com.pos.sales.PricingCalculator.Line;
-import com.pos.sales.PricingCalculator.TaxKey;
 import com.pos.sales.PricingCalculator.Totals;
+import com.pos.tax.TaxKey;
 
 class PricingCalculatorTest {
 

@@ -30,6 +30,7 @@ import com.pos.catalog.CatalogDtos.OfferingRequest;
 import com.pos.auth.AuthUser;
 import com.pos.catalog.CatalogDtos.StockChangeRequest;
 import com.pos.catalog.CatalogDtos.StockLevelDto;
+import com.pos.common.OfferingType;
 import com.pos.inventory.BranchContext;
 import com.pos.common.ApiException;
 import com.pos.common.PageResponse;
@@ -154,7 +155,7 @@ public class OfferingController {
     @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
     public OfferingDto update(@PathVariable Long id, @Valid @RequestBody OfferingRequest req,
                               @AuthenticationPrincipal AuthUser user) {
-        return service.update(id, req, scope(null, null, false, user));
+        return service.update(id, req, scope(null, null, false, user), user.id());
     }
 
     /** Admins in any branch; managers in their own branch's storages. */

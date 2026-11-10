@@ -18,6 +18,27 @@ import { BranchFilter } from "../inventory/BranchFilter";
 
 type Range = { from: string; to: string };
 
+/**
+ * Printing a report: A4 landscape (reports have many columns), black on white even in dark mode,
+ * the whole table rather than a scrolled slice, and the chart's bars kept.
+ */
+const REPORT_PRINT_CSS = `@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+  .print-area.report-print {
+    width: 100%;
+    --text: #000; --muted: #444; --border: #ccc; --surface: #fff; --surface-2: #fff; --bg: #fff; --danger: #b42318;
+    font-size: 10pt;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .report-print .overflow-x-auto { overflow: visible; }
+  .report-print table { font-size: 9pt; }
+  .report-print th, .report-print td { padding: 3px 6px; }
+  .report-print tr { break-inside: avoid; }
+  .report-print thead { display: table-header-group; }
+  .report-print tfoot { display: table-row-group; }
+}`;
+
 /** Quick date ranges, in the store's time zone. */
 function presets(today: string): { label: string; range: Range }[] {
   const d = new Date(`${today}T00:00:00Z`);
@@ -319,7 +340,9 @@ function ReportTable({ report, timezone, range }: { report: ReportResult; timezo
         : null;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="print-area report-print flex flex-col gap-4">
+      {/* Reports print on A4, wide tables in landscape: overrides the 80mm receipt page in globals.css. */}
+      <style>{REPORT_PRINT_CSS}</style>
       <div className="hidden print:block">
         <h1 className="text-lg font-semibold">{translateServer(report.title)}</h1>
         <p className="text-sm">{range ? t("{from} to {to}", { from: range.from, to: range.to }) : t("As of now")}</p>
@@ -334,8 +357,10 @@ function ReportTable({ report, timezone, range }: { report: ReportResult; timezo
               <tr>
                 {report.columns.map((c) => (
                   <th key={c.key} className={cx("px-3 py-2 font-medium whitespace-nowrap", numeric(c.type) && "text-right")}>
+                    {/* Printed as plain text: browsers don't repeat buttons in the header on later pages. */}
+                    <span className="hidden print:inline">{translateServer(c.label)}</span>
                     <button
-                      className="inline-flex items-center gap-0.5 hover:text-text print:pointer-events-none"
+                      className="inline-flex items-center gap-0.5 hover:text-text print:hidden"
                       onClick={() => setSort((s) => (s?.key === c.key ? { key: c.key, desc: !s.desc } : { key: c.key, desc: numeric(c.type) }))}
                     >
                       {translateServer(c.label)}

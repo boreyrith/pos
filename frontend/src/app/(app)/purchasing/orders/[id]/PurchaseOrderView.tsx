@@ -299,7 +299,7 @@ function ReceiveDialog({ order, onClose, onDone }: { order: PurchaseOrder; onClo
     const v = Number(qtys[l.id] || 0);
     return !Number.isInteger(v) || v < 0 || v > l.remaining;
   });
-  const currency = store.data?.currency ?? "USD";
+  const currency = store.data?.currency;
   const value = lines.reduce((n, x) => n + x.qty * x.line.unitCost, 0);
   const save = useMutation({
     mutationFn: () =>

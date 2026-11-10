@@ -21,11 +21,20 @@ export type Permission =
   | "PURCHASE_RECEIVE"
   | "PURCHASE_INVOICE"
   | "PURCHASE_PAY"
+  | "MARKETING_VIEW"
+  | "PROMOTIONS_MANAGE"
+  | "LOYALTY_MANAGE"
+  | "CAMPAIGNS_MANAGE"
+  | "ACCOUNTING_VIEW"
+  | "ACCOUNTING_RECORD"
+  | "ACCOUNTING_JOURNAL"
+  | "ACCOUNTING_MANAGE"
   | "REPORTS_DASHBOARD"
   | "REPORTS_TAX"
   | "REPORTS_SALES"
   | "REPORTS_INVENTORY"
   | "REPORTS_PURCHASING"
+  | "REPORTS_ACCOUNTING"
   | "SETTINGS_VIEW"
   | "SETTINGS_COMPANY"
   | "SETTINGS_TAX"
@@ -74,6 +83,8 @@ export interface PermissionInfo {
   implies: Permission[];
 }
 
+export type Gender = "MALE" | "FEMALE";
+
 export interface User {
   id: number;
   username: string;
@@ -95,9 +106,40 @@ export interface User {
   /** Must choose a new password before using the app. */
   mustChangePassword: boolean;
   passwordChangedAt: string | null;
+  /** Optional personal details; `fullName` is the display name (receipts, history). */
+  nameKm: string | null;
+  nameLatin: string | null;
+  gender: Gender | null;
+  /** yyyy-mm-dd */
+  dateOfBirth: string | null;
+  /** Their own photo (My account); fetched from /auth/me/photo?v=photoVersion with the session. */
+  hasPhoto: boolean;
+  photoVersion: number;
+  /** A built-in avatar picked instead of a photo (lib/avatars.ts), or null. */
+  avatar: string | null;
 }
 
-export type AuditCategory = "AUTH" | "USERS" | "SETTINGS" | "CATALOG" | "INVENTORY" | "PURCHASING" | "SALES";
+/** A signed-in device. */
+export interface UserSession {
+  id: string;
+  userId: number;
+  username: string;
+  fullName: string;
+  roleName: string;
+  /** "Chrome on Windows" */
+  device: string;
+  browser: string;
+  os: string;
+  kind: "DESKTOP" | "PHONE" | "TABLET";
+  ipAddress: string | null;
+  createdAt: string;
+  lastUsedAt: string;
+  expiresAt: string;
+  /** The session this request came from. */
+  current: boolean;
+}
+
+export type AuditCategory = "AUTH" | "USERS" | "SETTINGS" | "CATALOG" | "INVENTORY" | "PURCHASING" | "SALES" | "MARKETING" | "ACCOUNTING";
 
 export interface AuditEntry {
   id: number;
@@ -273,6 +315,10 @@ export interface Customer {
   /** The default Walk-in Customer. */
   walkIn: boolean;
   createdAt: string;
+  /** Loyalty points (can be below zero after a refund takes back points already used). */
+  pointsBalance: number;
+  /** Loyalty tier; null for the Walk-in Customer. */
+  tier: Tier | null;
 }
 
 export interface CustomerDetail {
@@ -389,7 +435,21 @@ export interface VendorInvoice {
   note: string | null;
   createdBy: string;
   createdAt: string;
-  payments: { id: number; amount: number; method: VendorPaymentMethod; paidOn: string; reference: string | null; note: string | null; createdBy: string; createdAt: string }[];
+  payments: {
+    id: number;
+    amount: number;
+    method: VendorPaymentMethod;
+    paidOn: string;
+    reference: string | null;
+    note: string | null;
+    createdBy: string;
+    createdAt: string;
+    /** The cash or bank account it was paid from ("1001 Cash - Main Shop"); null before the books were started. */
+    moneyAccount: string | null;
+  }[];
+  /** Without a purchase order: the expense account it is booked to. */
+  expenseAccountId: number | null;
+  expenseAccount: string | null;
 }
 
 export interface PayablesSummary {
@@ -719,6 +779,9 @@ export interface OrderItem {
   partsUsed: { itemId: number; itemName: string; quantity: number }[];
   /** Packages: what was inside (depth > 0 = inside a nested package). */
   contents: { offeringId: number; type: OfferingType; name: string; nameKm: string | null; quantity: number; unit: string | null; depth: number }[];
+  /** What a promotion took off the line (before the item discount), and which, as named then. */
+  promoDiscount: number;
+  promotionName: string | null;
 }
 
 export interface Order {
@@ -767,6 +830,215 @@ export interface Order {
   /** Per tax rate: the net base after discount and the tax, included or added. */
   taxes: { name: string; rate: number; included: boolean; base: number; tax: number }[];
   returns: OrderReturn[];
+  /** Promotions on all lines, and the order promotion (coupon or automatic). */
+  promoDiscount: number;
+  orderPromoDiscount: number;
+  couponCode: string | null;
+  /** What each promotion took off the sale, as it was then. */
+  promotions: { promotionId: number; name: string; code: string | null; kind: PromotionKind; amount: number }[];
+  /** Loyalty points used and what they took off; points earned once paid; the customer's balance now (null for walk-ins). */
+  pointsRedeemed: number;
+  pointsDiscount: number;
+  pointsEarned: number;
+  customerPoints: number | null;
+  customerTier: Tier | null;
+}
+
+export type Tier = "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
+
+export interface TierRule {
+  code: Tier;
+  /** Spending (after refunds) in the tier window that reaches this tier. */
+  minSpend: number;
+  pointsMultiplier: number;
+}
+
+export interface LoyaltyRules {
+  enabled: boolean;
+  /** Points for each 1.00 paid. */
+  pointsPerUnit: number;
+  /** What a point is worth when used. */
+  pointValue: number;
+  minRedeem: number;
+  /** The most of a sale (after discounts) points can pay, in %. */
+  maxRedeemPct: number;
+  updatedBy: string | null;
+  updatedAt: string;
+  /** Months of spending that count towards a tier; null = all time. */
+  tierMonths: number | null;
+  /** Bronze to Platinum. */
+  tiers: TierRule[];
+}
+
+export type LoyaltyType = "EARN" | "REDEEM" | "RESTORE" | "REVERSE" | "ADJUST";
+
+export interface LoyaltyTransaction {
+  id: number;
+  customerId: number;
+  customerName: string;
+  type: LoyaltyType;
+  /** Signed. */
+  points: number;
+  balanceAfter: number;
+  orderId: number | null;
+  returnId: number | null;
+  note: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+/** Who belongs to a segment: every rule left out matches everyone. */
+export interface SegmentRules {
+  minSpent?: number | null;
+  maxSpent?: number | null;
+  minOrders?: number | null;
+  maxOrders?: number | null;
+  boughtWithinDays?: number | null;
+  notBoughtForDays?: number | null;
+  joinedWithinDays?: number | null;
+  minPoints?: number | null;
+  hasPhone?: boolean | null;
+  hasEmail?: boolean | null;
+  categoryIds?: number[] | null;
+  minTier?: Tier | null;
+}
+
+export interface Segment {
+  id: number;
+  name: string;
+  description: string | null;
+  rules: SegmentRules;
+  /** How many customers are in it now. */
+  members: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SegmentMember {
+  id: number;
+  code: string | null;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  points: number;
+  orders: number;
+  spent: number;
+  lastVisit: string | null;
+  createdAt: string;
+}
+
+export interface Campaign {
+  id: number;
+  name: string;
+  segmentId: number | null;
+  segmentName: string | null;
+  channel: "EXPORT";
+  message: string;
+  promotionId: number | null;
+  promotionName: string | null;
+  codePrefix: string | null;
+  codesExpireOn: string | null;
+  status: "DRAFT" | "PREPARED";
+  recipients: number;
+  preparedBy: string | null;
+  preparedAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  /** Results: codes used, sales with them (not cancelled), what those came to after refunds, and what the codes took off. */
+  codesUsed: number;
+  sales: number;
+  revenue: number;
+  discount: number;
+}
+
+export interface CampaignRecipient {
+  customerId: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  code: string | null;
+  codeUsed: boolean;
+  message: string;
+}
+
+export interface LoyaltyOverview {
+  rules: LoyaltyRules;
+  members: number;
+  outstanding: number;
+  liability: number;
+  earned30: number;
+  redeemed30: number;
+  top: { customerId: number; code: string | null; name: string; phone: string | null; points: number; tier: Tier | null }[];
+  tierCounts: Record<Tier, number>;
+}
+
+// ---------------------------------------------------------------- marketing
+
+export type PromotionKind = "ITEM_DISCOUNT" | "BUY_X_GET_Y" | "ORDER_DISCOUNT";
+export type PromotionScope = "ALL" | "CATEGORIES" | "OFFERINGS";
+export type PromotionStatus = "RUNNING" | "SCHEDULED" | "ENDED" | "PAUSED" | "USED_UP";
+
+export interface Promotion {
+  id: number;
+  name: string;
+  description: string | null;
+  kind: PromotionKind;
+  discountType: DiscountType;
+  discountValue: number;
+  scope: PromotionScope;
+  categoryIds: number[];
+  offeringIds: number[];
+  buyQty: number | null;
+  getQty: number | null;
+  minSpend: number | null;
+  maxDiscount: number | null;
+  /** Store-local dates (yyyy-mm-dd) and times (hh:mm:ss). */
+  startsOn: string | null;
+  endsOn: string | null;
+  /** ISO days, Monday = 1; empty = every day. */
+  daysOfWeek: number[];
+  timeFrom: string | null;
+  timeTo: string | null;
+  requiresCode: boolean;
+  customersOnly: boolean;
+  /** Only for customers in this tier or above. */
+  minTier: Tier | null;
+  usageLimit: number | null;
+  perCustomerLimit: number | null;
+  usedCount: number;
+  priority: number;
+  active: boolean;
+  /** Empty = every branch. */
+  branchIds: number[];
+  status: PromotionStatus;
+  /** Taken off sales so far (cancelled ones not counted), and how many sales. */
+  discountGiven: number;
+  orders: number;
+  codes: number;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface CouponCode {
+  id: number;
+  code: string;
+  /** null = any number of times. */
+  maxUses: number | null;
+  usedCount: number;
+  customerId: number | null;
+  customerName: string | null;
+  expiresOn: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+/** What promotions take off a cart, from POST /promotions/evaluate. */
+export interface PromotionPreview {
+  lines: { promoDiscount: number; promotionId: number | null; promotionName: string | null }[];
+  orderDiscount: number;
+  applied: { promotionId: number; name: string; code: string | null; kind: PromotionKind; amount: number }[];
+  coupon: { code: string; applied: boolean; message: string | null } | null;
 }
 
 /** A row in Sales > Returns & refunds. `fullRefund` = it refunded everything that was left on the order. */
@@ -799,6 +1071,9 @@ export interface OrderReturn {
   createdBy: string;
   createdAt: string;
   lines: { orderItemId: number; name: string; quantity: number; total: number; tax: number }[];
+  /** Loyalty points taken back (earned on what was refunded) and given back (used on it). */
+  pointsReversed: number;
+  pointsRestored: number;
 }
 
 export interface TaxReport {
@@ -971,4 +1246,195 @@ export interface ResumedHold {
   hold: HeldSale;
   cart: { lines: HeldLine[]; discountType: DiscountType | null; discountValue: number | null };
   warnings: string[];
+}
+
+// ---------------------------------------------------------------- accounting
+
+export type AccountType =
+  | "CASH"
+  | "BANK"
+  | "CURRENT_ASSET"
+  | "FIXED_ASSET"
+  | "CURRENT_LIABILITY"
+  | "LONG_TERM_LIABILITY"
+  | "EQUITY"
+  | "REVENUE"
+  | "OTHER_INCOME"
+  | "COST_OF_SALES"
+  | "EXPENSE"
+  | "OTHER_EXPENSE";
+
+export type AccountSection = "ASSET" | "LIABILITY" | "EQUITY" | "INCOME" | "EXPENSE";
+
+/** An account in the chart. `balance` is on its normal side (cash held, money owed, income earned...). */
+export interface Account {
+  id: number;
+  code: string;
+  name: string;
+  type: AccountType;
+  section: AccountSection;
+  /** Used by automatic postings: can be renamed, keeps its type, stays on. */
+  system: boolean;
+  systemKey: string | null;
+  branchId: number | null;
+  branchName: string | null;
+  description: string | null;
+  active: boolean;
+  balance: number;
+}
+
+export interface AccountOption {
+  id: number;
+  code: string;
+  name: string;
+  type: AccountType;
+  branchId: number | null;
+}
+
+export type JournalSource =
+  | "SALE"
+  | "SALE_RETURN"
+  | "GOODS_RECEIPT"
+  | "VENDOR_INVOICE"
+  | "VENDOR_INVOICE_VOID"
+  | "VENDOR_PAYMENT"
+  | "STOCK_ADJUSTMENT"
+  | "OPENING_STOCK"
+  | "REVALUATION"
+  | "OTHER_INCOME"
+  | "OTHER_EXPENSE"
+  | "MANUAL"
+  | "OPENING"
+  | "REVERSAL";
+
+export interface JournalLine {
+  accountId: number;
+  accountCode: string;
+  accountName: string;
+  accountType: AccountType;
+  debit: number;
+  credit: number;
+  memo: string | null;
+  vendorId: number | null;
+  vendorName: string | null;
+  customerId: number | null;
+  customerName: string | null;
+}
+
+export interface JournalEntry {
+  id: number;
+  entryNumber: string;
+  date: string;
+  branchId: number | null;
+  branchName: string | null;
+  source: JournalSource;
+  /** The document it came from (order, purchase order, invoice, adjustment, catalog entry...). */
+  sourceId: number | null;
+  reference: string | null;
+  memo: string;
+  total: number;
+  reversalOfId: number | null;
+  reversalOfNumber: string | null;
+  reversedById: number | null;
+  reversedByNumber: string | null;
+  reversible: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  lines: JournalLine[];
+}
+
+export interface LedgerLine {
+  entryId: number;
+  entryNumber: string;
+  date: string;
+  source: JournalSource;
+  sourceId: number | null;
+  reference: string | null;
+  memo: string;
+  party: string | null;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+export interface Ledger {
+  account: Account;
+  from: string;
+  to: string;
+  opening: number;
+  debits: number;
+  credits: number;
+  closing: number;
+  lines: LedgerLine[];
+  truncated: boolean;
+}
+
+export type AccountingMode = "NORMAL" | "FULL";
+
+export interface AccountingSettings {
+  started: boolean;
+  /** NORMAL leaves out manual journal entries, reversals, the balance sheet and trial balance. */
+  mode: AccountingMode;
+  startDate: string | null;
+  lockDate: string | null;
+  firstOpenDate: string | null;
+}
+
+export interface SuggestedOpeningLine {
+  accountId: number;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  vendorId: number | null;
+  memo: string | null;
+}
+
+export interface AccountingOverview {
+  settings: AccountingSettings;
+  money: Account[];
+  monthIncome: number;
+  monthCostOfSales: number;
+  monthExpenses: number;
+  monthProfit: number;
+  payables: number;
+  /** Output VAT less input VAT. */
+  vatOwed: number;
+  /** The Inventory account, and the stock valuation it should equal. */
+  inventoryBooks: number;
+  inventoryStock: number;
+  monthStart: string;
+}
+
+export type OtherKind = "INCOME" | "EXPENSE";
+
+export interface OtherTransaction {
+  id: number;
+  number: string;
+  kind: OtherKind;
+  date: string;
+  branchId: number;
+  branchName: string;
+  accountId: number;
+  account: string;
+  moneyAccountId: number;
+  moneyAccount: string;
+  /** Tax included. */
+  amount: number;
+  tax: number;
+  party: string | null;
+  vendorId: number | null;
+  vendorName: string | null;
+  customerId: number | null;
+  customerName: string | null;
+  reference: string | null;
+  note: string | null;
+  status: "POSTED" | "VOID";
+  entryId: number | null;
+  entryNumber: string | null;
+  createdBy: string;
+  createdAt: string;
+  voidedBy: string | null;
+  voidedAt: string | null;
+  voidReason: string | null;
 }

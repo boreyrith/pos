@@ -1,7 +1,15 @@
 import { dateLocale, getLang, msg, translate } from "./i18n";
 import type { Currency } from "./types";
 
-export function money(amount: number, currency = "USD") {
+/**
+ * Formats an amount in a currency, e.g. "$12.35". Pass the store's currency (`useCurrency()`) or the
+ * one a record was made in; while the store's settings are loading it is undefined and the amount
+ * shows without a symbol rather than in a currency the store may not use.
+ */
+export function money(amount: number, currency: string | undefined) {
+  if (!currency) {
+    return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+  }
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
 }
 
@@ -61,6 +69,16 @@ export function shortDate(isoDate: string) {
     return `${x.day} ${KHMER_MONTHS[x.month - 1]}`;
   }
   return new Intl.DateTimeFormat(dateLocale(), { day: "numeric", month: "short", timeZone: "UTC" }).format(date);
+}
+
+/** "13 Apr 1995", or in Khmer "13 មេសា 1995", for a yyyy-mm-dd date such as a birthday. */
+export function longDate(isoDate: string) {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  if (getLang() === "km") {
+    const x = parts(date, "UTC");
+    return `${x.day} ${KHMER_MONTHS[x.month - 1]} ${x.year}`;
+  }
+  return new Intl.DateTimeFormat(dateLocale(), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
 export function todayIn(timeZone: string) {

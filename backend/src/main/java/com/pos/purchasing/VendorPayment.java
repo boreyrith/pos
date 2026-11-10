@@ -33,6 +33,11 @@ public class VendorPayment {
     @Column(nullable = false, length = 20)
     private VendorPaymentMethod method;
 
+    /** The cash or bank account it was paid from (see accounting). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "money_account_id")
+    private com.pos.accounting.Account moneyAccount;
+
     @Column(name = "paid_on", nullable = false)
     private LocalDate paidOn;
 

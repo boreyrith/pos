@@ -21,7 +21,7 @@ export function VendorsTab() {
   const store = useStoreSettings();
   const [editing, setEditing] = useState<Vendor | "new" | null>(null);
   const [q, setQ] = useState("");
-  const currency = store.data?.currency ?? "USD";
+  const currency = store.data?.currency;
   const term = q.trim().toLowerCase();
   const shown = (vendors.data ?? []).filter(
     (v) => !term || [v.name, v.code, v.contactName ?? "", v.phone ?? "", v.email ?? ""].some((x) => x.toLowerCase().includes(term)),

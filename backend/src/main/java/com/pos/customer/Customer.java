@@ -6,6 +6,8 @@ import com.pos.auth.User;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -53,6 +55,16 @@ public class Customer {
 
     @Column(length = 500)
     private String note;
+
+    /** Loyalty points; changed only through LoyaltyService, which records each change. Can go below zero
+     * when a refund takes back points that were already used. */
+    @Column(name = "points_balance", nullable = false)
+    private int pointsBalance;
+
+    /** Loyalty tier, kept up to date by LoyaltyService; null for the Walk-in Customer. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Tier tier;
 
     @Column(nullable = false)
     private boolean active = true;

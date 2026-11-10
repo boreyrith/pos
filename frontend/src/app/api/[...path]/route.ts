@@ -18,8 +18,11 @@ async function proxy(req: NextRequest, ctx: RouteContext<"/api/[...path]">) {
     const value = req.headers.get(name);
     if (value) headers.set(name, value);
   }
-  const forwardedFor = req.headers.get("x-forwarded-for");
-  if (forwardedFor) headers.set("x-forwarded-for", forwardedFor);
+  // Where the request came from, as the proxy in front (nginx) reports it: shown in the list of signed-in devices.
+  for (const name of ["x-forwarded-for", "x-real-ip"]) {
+    const value = req.headers.get(name);
+    if (value) headers.set(name, value);
+  }
 
   let upstream: Response;
   try {

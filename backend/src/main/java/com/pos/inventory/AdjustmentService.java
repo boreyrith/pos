@@ -23,10 +23,10 @@ import com.pos.auth.UserRepository;
 import com.pos.catalog.CatalogDtos.UnitQuantity;
 import com.pos.catalog.Offering;
 import com.pos.catalog.OfferingRepository;
-import com.pos.catalog.OfferingType;
 import com.pos.catalog.UnitConversion;
 import com.pos.common.ApiException;
 import com.pos.common.Money;
+import com.pos.common.OfferingType;
 import com.pos.inventory.StockService.Ref;
 
 import jakarta.validation.Valid;
@@ -91,8 +91,11 @@ public class AdjustmentService {
     private final BranchContext branches;
     private final AuditService audit;
 
+    private final StockBookkeeping postings;
+
     public AdjustmentService(StockAdjustmentRepository adjustments, StorageRepository storages, OfferingRepository offerings,
-                             UserRepository users, StockService stock, BranchContext branches, AuditService audit) {
+                             UserRepository users, StockService stock, BranchContext branches, AuditService audit, StockBookkeeping postings) {
+        this.postings = postings;
         this.adjustments = adjustments;
         this.storages = storages;
         this.offerings = offerings;
@@ -189,6 +192,7 @@ public class AdjustmentService {
         a.setLineCount(a.getLines().size());
         a.setValueChange(total);
         adjustments.flush();
+        postings.stockAdjustment(a, user.id());
 
         long changed = a.getLines().stream().filter(l -> l.getChangeQty() != 0).count();
         audit.log(count ? AuditAction.STOCK_COUNTED : AuditAction.STOCK_ADJUSTED, "StockAdjustment", a.getId(),

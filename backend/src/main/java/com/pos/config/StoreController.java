@@ -2,14 +2,14 @@ package com.pos.config;
 
 import java.util.Set;
 
-import com.pos.catalog.OfferingType;
+import com.pos.common.OfferingType;
+import com.pos.settings.SettingsService;
 import com.pos.tax.TaxRate;
 import com.pos.tax.TaxRateRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pos.currency.CurrencyService;
-import com.pos.settings.SettingsService;
 import com.pos.tax.TaxMode;
 
 /** Settings every signed-in screen needs: pricing, receipts, time zone. */

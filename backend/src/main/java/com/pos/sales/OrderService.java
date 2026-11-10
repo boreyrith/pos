@@ -4,7 +4,11 @@ import org.springframework.http.HttpStatus;
 import com.pos.access.Permission;
 import java.util.TreeMap;
 import java.util.LinkedHashMap;
+import com.pos.catalog.OfferingTaxes;
+import com.pos.common.OfferingType;
 import com.pos.sales.SalesDtos.ReturnRequest;
+import com.pos.settings.SettingsService;
+import com.pos.tax.TaxKey;
 import com.pos.tax.TaxSettings;
 import com.pos.tax.TaxService;
 import java.math.BigDecimal;
@@ -32,11 +36,9 @@ import com.pos.auth.UserRepository;
 import com.pos.auth.User;
 import com.pos.catalog.Offering;
 import com.pos.catalog.OfferingRepository;
-import com.pos.catalog.OfferingType;
 import com.pos.catalog.PackageExpander;
 import com.pos.catalog.ServiceComponent;
 import com.pos.common.ApiException;
-import com.pos.settings.SettingsService;
 import com.pos.currency.CashSettlement;
 import com.pos.currency.CashSettlement.Tender;
 import com.pos.currency.CurrencyService;
@@ -84,12 +86,22 @@ public class OrderService {
     private final com.pos.customer.CustomerService customers;
     private final OrderReturnRepository returnsRepo;
     private final com.pos.hold.HeldSaleService heldSales;
+    private final SalePromotions promotions;
+    private final CustomerRewards loyalty;
+
+    private final SaleBookkeeping postings;
+    private final OrderSearch orderSearch;
 
     public OrderService(OrderRepository orders, OfferingRepository offerings, PaymentRepository payments,
                         UserRepository users, KhqrService khqr, SettingsService settings, TransactionTemplate tx,
                         StockService stock, BranchContext branches, CurrencyService currencies, AuditService audit,
                         TaxService taxes, com.pos.customer.CustomerService customers, OrderReturnRepository returnsRepo,
-                        com.pos.hold.HeldSaleService heldSales) {
+                        com.pos.hold.HeldSaleService heldSales, SalePromotions promotions,
+                        CustomerRewards loyalty, SaleBookkeeping postings, OrderSearch orderSearch) {
+        this.postings = postings;
+        this.orderSearch = orderSearch;
+        this.loyalty = loyalty;
+        this.promotions = promotions;
         this.heldSales = heldSales;
         this.returnsRepo = returnsRepo;
         this.customers = customers;
@@ -136,13 +148,26 @@ public class OrderService {
             order.addItem(toOrderItem(line, byId.get(line.offeringId()), cashier, tax));
         }
 
+        // Promotions first (they set each line's promotion and reserve their use), then the cashier's discounts.
+        BigDecimal orderPromo = promotions.applyToSale(order, req.couponCode());
         requireItemDiscountsAllowed(order, cashier);
-        var totals = PricingCalculator.calculate(
-                order.getItems().stream().map(OrderService::pricingLine).toList(),
-                req.discountType(), req.discountValue());
+        List<Line> lines = order.getItems().stream().map(OrderService::pricingLine).toList();
+        // Loyalty points come last: they can pay up to the set share of what is left after every other discount.
+        BigDecimal pointsValue = null;
+        if (req.redeemPoints() != null && req.redeemPoints() > 0) {
+            var before = PricingCalculator.calculate(lines, req.discountType(), req.discountValue(), orderPromo, null);
+            BigDecimal left = before.subtotal().subtract(before.promoDiscount()).subtract(before.itemDiscount())
+                    .subtract(before.orderPromoDiscount()).subtract(before.discount());
+            pointsValue = loyalty.checkRedeem(customer, req.redeemPoints(), left);
+            order.setPointsRedeemed(req.redeemPoints());
+        }
+        var totals = PricingCalculator.calculate(lines, req.discountType(), req.discountValue(), orderPromo, pointsValue);
+        order.setPointsDiscount(totals.pointsDiscount());
         order.setSubtotal(totals.subtotal());
         order.setDiscountAmount(totals.discount());
         order.setItemDiscount(totals.itemDiscount());
+        order.setPromoDiscount(totals.promoDiscount());
+        order.setOrderPromoDiscount(totals.orderPromoDiscount());
         order.setTaxAmount(totals.tax());
         order.setTaxIncluded(totals.taxIncluded());
         order.setTotal(totals.total());
@@ -182,6 +207,11 @@ public class OrderService {
             order.addPayment(khqr.createPayment(totals.total(), chargeIn, order.getOrderNumber()));
         }
         orders.flush();
+        loyalty.redeem(order, cashier);
+        if (order.getStatus() == OrderStatus.COMPLETED) {
+            loyalty.earn(order);
+            loyalty.refreshTier(order.getCustomer());
+        }
         if (req.heldSaleId() != null) {
             heldSales.attachToOrder(req.heldSaleId(), order, cashier);
         }
@@ -191,6 +221,9 @@ public class OrderService {
         Ref ref = new Ref(cashier.id(), order.getId(), null, null);
         StockMovements.of(order.getItems())
                 .forEach((offeringId, qty) -> stock.take(selling.getId(), offeringId, qty, MovementType.SALE, ref));
+        if (order.getStatus() == OrderStatus.COMPLETED) {
+            postings.sale(order, StockMovements.of(order.getItems()), cashier.id());
+        }
         return OrderDto.from(order);
     }
 
@@ -198,7 +231,11 @@ public class OrderService {
     @Transactional(readOnly = true)
     public Page<OrderSummaryDto> search(Long branchId, OrderStatus status, Instant from, Instant to, String q, Long customerId,
                                         Pageable pageable) {
-        return orders.search(branchId, status, from, to, blankToNull(q), customerId, pageable).map(OrderSummaryDto::from);
+        String text = blankToNull(q);
+        Page<Order> found = text != null && text.strip().length() >= OrderSearch.MIN_LENGTH
+                ? orderSearch.search(branchId, status, from, to, text.strip(), customerId, pageable)
+                : orders.search(branchId, status, from, to, text, customerId, pageable);
+        return found.map(OrderSummaryDto::from);
     }
 
     @Transactional(readOnly = true)
@@ -308,6 +345,9 @@ public class OrderService {
         ret.setReturnNumber(String.format("RET-%05d", ret.getId()));
         Ref ref = new Ref(user.id(), order.getId(), null, "Return " + ret.getReturnNumber());
         back.forEach((offeringId, qty) -> stock.add(order.getStorage().getId(), offeringId, qty, MovementType.REFUND, ref));
+        postings.saleReturn(order, ret, back, user.id());
+        loyalty.returned(order, ret, user);
+        loyalty.refreshTier(order.getCustomer());
         return ret;
     }
 
@@ -356,6 +396,10 @@ public class OrderService {
         if (settlement.isPresent()) {
             payment.markPaid(settlement.get());
             order.complete();
+            loyalty.earn(order);
+            orders.flush();
+            postings.sale(order, StockMovements.of(order.getItems()), null);
+            loyalty.refreshTier(order.getCustomer());
             heldSales.orderPaid(order);
             log.info("Order {} paid by KHQR ({})", order.getOrderNumber(), settlement.get());
         } else if (payment.isExpired(Instant.now())) {
@@ -370,6 +414,8 @@ public class OrderService {
         order.getPayments().stream().filter(p -> p.getStatus() == PaymentStatus.PENDING)
                 .forEach(p -> p.setStatus(paymentStatus));
         returnStock(order, MovementType.SALE_RETURN, userId);
+        promotions.release(order);
+        loyalty.cancelled(order);
         heldSales.orderCancelled(order);
     }
 
@@ -407,7 +453,7 @@ public class OrderService {
         item.setQuantity(line.quantity());
         item.setHours(line.hours());
         // The rate actually charged: 0 under No VAT, for types outside the tax scope, or exempt rates.
-        PricingCalculator.TaxKey key = TaxService.keyFor(offering, tax);
+        TaxKey key = OfferingTaxes.keyFor(offering, tax);
         item.setTaxRateId(key.rateId());
         item.setTaxName(key.name());
         item.setTaxRate(key.rate());
@@ -516,8 +562,8 @@ public class OrderService {
                 throw new ApiException(HttpStatus.FORBIDDEN, "You can't discount single items (" + i.getName() + ")");
             }
             // A % discount is held to the % entered (cent rounding can't push it over); an amount
-            // is held to the % of the line it takes off.
-            BigDecimal lineTotal = line.gross();
+            // is held to the % it takes off the line after its promotion.
+            BigDecimal lineTotal = line.gross().subtract(line.promo());
             BigDecimal pct = i.getItemDiscountType() == DiscountType.PERCENT ? i.getItemDiscountValue()
                     : lineTotal.signum() == 0 ? BigDecimal.ZERO
                     : off.multiply(BigDecimal.valueOf(100)).divide(lineTotal, 4, java.math.RoundingMode.HALF_UP);
@@ -555,8 +601,8 @@ public class OrderService {
 
     private static Line pricingLine(OrderItem i) {
         return new Line(i.getUnitPrice(), i.getQuantity(), i.getHours(),
-                new PricingCalculator.TaxKey(i.getTaxRateId(), i.getTaxName(), i.getTaxRate(), i.isPriceIncludesTax()),
-                i.getItemDiscountType(), i.getItemDiscountValue());
+                new TaxKey(i.getTaxRateId(), i.getTaxName(), i.getTaxRate(), i.isPriceIncludesTax()),
+                i.getItemDiscountType(), i.getItemDiscountValue(), i.getPromoDiscount());
     }
 
     private void returnStock(Order order, MovementType type, Long userId) {

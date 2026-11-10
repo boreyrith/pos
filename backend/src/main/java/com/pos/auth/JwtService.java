@@ -7,13 +7,13 @@ import javax.crypto.SecretKey;
 
 import org.springframework.stereotype.Service;
 
-import com.pos.config.AppProperties;
-
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+
+import com.pos.common.AppProperties;
 
 @Service
 public class JwtService {
@@ -26,10 +26,12 @@ public class JwtService {
         this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(props.secret()));
     }
 
-    public String createAccessToken(User user) {
+    /** {@code sessionId}: the sign-in it belongs to, so ending that session refuses the token at once. */
+    public String createAccessToken(User user, String sessionId) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(String.valueOf(user.getId()))
+                .claim("sid", sessionId)
                 .claim("username", user.getUsername())
                 .claim("name", user.getFullName())
                 .claim("pwc", user.isMustChangePassword())
@@ -40,7 +42,7 @@ public class JwtService {
     }
 
     /** Who a valid token belongs to. Role and branch are not in the token: they are looked up per request. */
-    public record TokenIdentity(Long userId, String username, String fullName, boolean mustChangePassword) {
+    public record TokenIdentity(Long userId, String username, String fullName, boolean mustChangePassword, String sessionId) {
     }
 
     /** Returns the identity in a valid token, or throws {@link JwtException}. */
@@ -50,7 +52,8 @@ public class JwtService {
                 Long.valueOf(claims.getSubject()),
                 claims.get("username", String.class),
                 claims.get("name", String.class),
-                Boolean.TRUE.equals(claims.get("pwc", Boolean.class)));
+                Boolean.TRUE.equals(claims.get("pwc", Boolean.class)),
+                claims.get("sid", String.class));
     }
 
     public long accessTokenTtlSeconds() {

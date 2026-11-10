@@ -29,10 +29,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final AccessService access;
+    private final EndedSessions endedSessions;
 
-    public JwtAuthFilter(JwtService jwtService, AccessService access) {
+    public JwtAuthFilter(JwtService jwtService, AccessService access, EndedSessions endedSessions) {
         this.jwtService = jwtService;
         this.access = access;
+        this.endedSessions = endedSessions;
     }
 
     @Override
@@ -42,6 +44,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             try {
                 JwtService.TokenIdentity id = jwtService.parse(header.substring(7));
+                // A session that was ended (signed out, or by its owner or the super admin elsewhere) stops at once.
+                if (endedSessions.contains(id.sessionId())) {
+                    chain.doFilter(request, response);
+                    return;
+                }
                 // A disabled or deleted account stops working at once, not when the token expires.
                 var current = access.user(id.userId()).filter(AccessService.UserAccess::active).orElse(null);
                 if (current == null) {
@@ -50,7 +57,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 }
                 RoleAccess role = access.role(current.roleId());
                 AuthUser user = new AuthUser(id.userId(), id.username(), id.fullName(), role, current.branchId(),
-                        id.mustChangePassword());
+                        id.mustChangePassword(), id.sessionId());
                 if (user.mustChangePassword() && !ALLOWED_BEFORE_PASSWORD_CHANGE.contains(request.getServletPath())) {
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     response.setContentType("application/problem+json");

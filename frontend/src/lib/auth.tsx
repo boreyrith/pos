@@ -14,12 +14,14 @@ type AuthState =
 
 interface AuthContextValue {
   state: AuthState;
-  login: (username: string, password: string) => Promise<User>;
+  /** {@code remember}: stay signed in after the browser closes ("Remember me"). */
+  login: (username: string, password: string, remember?: boolean) => Promise<User>;
   logout: () => Promise<void>;
   /** Changes your own password; the server renews this session. */
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   /** Switches the interface language now and saves it to your account. */
   changeLanguage: (lang: Lang) => Promise<void>;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -62,8 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [signOutLocally]);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const tokens = await api<TokenResponse>("/auth/login", { method: "POST", json: { username, password } });
+  const login = useCallback(async (username: string, password: string, remember = true) => {
+    const tokens = await api<TokenResponse>("/auth/login", { method: "POST", json: { username, password, remember } });
     setAccessToken(tokens.accessToken);
     let user = tokens.user;
     // The language picked on the sign-in page is what this person wants: save it to the account.
@@ -86,6 +88,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState({ status: "signed-in", user: tokens.user });
   }, []);
 
+  /** After a change to the account made elsewhere (e.g. a new photo): the server's copy of the user. */
+  const updateUser = useCallback((user: User) => {
+    setState((s) => (s.status === "signed-in" ? { status: "signed-in", user } : s));
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api<void>("/auth/logout", { method: "POST" });
@@ -95,8 +102,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [signOutLocally]);
 
   const value = useMemo(
-    () => ({ state, login, logout, changePassword, changeLanguage }),
-    [state, login, logout, changePassword, changeLanguage],
+    () => ({ state, login, logout, changePassword, changeLanguage, updateUser }),
+    [state, login, logout, changePassword, changeLanguage, updateUser],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

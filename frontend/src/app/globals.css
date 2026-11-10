@@ -19,6 +19,7 @@
   --warning: #b54708;
   --warning-soft: #fef3e6;
   --chart-1: #2a78d6;
+  --chart-2: #eb6834;
   --chart-grid: #e9e8e4;
 }
 
@@ -41,6 +42,7 @@
     --warning: #fdb022;
     --warning-soft: #3a2a12;
     --chart-1: #3987e5;
+    --chart-2: #d95926;
     --chart-grid: #2c2c29;
   }
 }
@@ -63,6 +65,7 @@
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
   --color-chart-grid: var(--chart-grid);
   /* System fonts: no network needed, and Khmer falls back to the OS's Khmer font. */
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Khmer", "Khmer UI", "Khmer Sangam MN", "Leelawadee UI", sans-serif;
@@ -99,4 +102,16 @@ body {
 /* Khmer script has stacked vowels and subscripts: give it room so they aren't clipped. */
 :lang(km) body {
   line-height: 1.6;
+}
+
+/* The phone menu: the backdrop fades in and the panel slides in from the left. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes slide-in {
+  from {
+    transform: translateX(-100%);
+  }
 }

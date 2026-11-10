@@ -37,8 +37,13 @@ public class ReportsController {
     private final ReportsService reports;
     private final BranchContext branches;
     private final SettingsService settings;
+    private final com.pos.accounting.Ledger ledger;
 
-    public ReportsController(ReportsService reports, BranchContext branches, SettingsService settings) {
+    /** Reports that need full accounting (normal accounting leaves them out). */
+    private static final java.util.Set<String> FULL_ONLY = java.util.Set.of("balance-sheet", "trial-balance");
+
+    public ReportsController(ReportsService reports, BranchContext branches, SettingsService settings, com.pos.accounting.Ledger ledger) {
+        this.ledger = ledger;
         this.reports = reports;
         this.branches = branches;
         this.settings = settings;
@@ -46,7 +51,9 @@ public class ReportsController {
 
     @GetMapping("/reports/catalog")
     public List<Report.Info> catalog(@AuthenticationPrincipal AuthUser user) {
-        return ReportsService.CATALOG.stream().filter(i -> user.has(Permission.valueOf(i.permission()))).toList();
+        boolean full = ledger.settings().full();
+        return ReportsService.CATALOG.stream()
+                .filter(i -> user.has(Permission.valueOf(i.permission())) && (full || !FULL_ONLY.contains(i.key()))).toList();
     }
 
     @GetMapping("/reports/run/{key}")
@@ -92,6 +99,9 @@ public class ReportsController {
         Report.Info info = ReportsService.info(key);
         if (!user.has(Permission.valueOf(info.permission()))) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Your role can't open the " + info.title() + " report");
+        }
+        if (FULL_ONLY.contains(key) && !ledger.settings().full()) {
+            throw ApiException.conflict("The " + info.title() + " is part of full accounting: switch to it in Accounting > Setup");
         }
         LocalDate today = LocalDate.now(settings.current().timezone());
         LocalDate start = from != null ? from : today.withDayOfMonth(1);

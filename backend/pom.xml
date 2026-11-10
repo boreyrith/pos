@@ -21,6 +21,13 @@
         <java.version>25</java.version>
         <jjwt.version>0.13.0</jjwt.version>
         <springdoc.version>3.0.3</springdoc.version>
+        <archunit.version>1.4.2</archunit.version>
+        <!-- Newer than Spring Boot 4.1.1 brings, for security fixes: Tomcat (GHSA-9xv2-5v5q-p794 and
+             others) and Jackson's JSON parsing (GHSA-cxp5-3px4-pw24, GHSA-7hhh-6rmp-j9qf and others).
+             Remove these once a Spring Boot release includes them. -->
+        <tomcat.version>11.0.27</tomcat.version>
+        <jackson-bom.version>3.1.8</jackson-bom.version>
+        <jackson-2-bom.version>2.21.8</jackson-2-bom.version>
     </properties>
 
     <dependencies>
@@ -47,6 +54,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Metrics for Prometheus at /actuator/prometheus (needs METRICS_TOKEN; see MetricsAccessFilter). -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -91,6 +103,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Reads the compiled classes for ModuleBoundariesTest (which module may use which). -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit</artifactId>
+            <version>${archunit.version}</version>
             <scope>test</scope>
         </dependency>
         <!-- Integration tests run against a real MySQL in a throwaway container (needs Docker). -->

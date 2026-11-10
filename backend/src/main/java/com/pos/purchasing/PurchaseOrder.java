@@ -7,8 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.pos.auth.User;
-import com.pos.inventory.Branch;
+import com.pos.branch.Branch;
 import com.pos.inventory.Storage;
+import com.pos.vendor.Vendor;
 
 import jakarta.persistence.*;
 import lombok.Getter;

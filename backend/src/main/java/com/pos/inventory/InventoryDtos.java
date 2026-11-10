@@ -2,6 +2,7 @@ package com.pos.inventory;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 import com.pos.catalog.CatalogDtos.UnitQuantity;
 
@@ -46,14 +47,16 @@ public final class InventoryDtos {
                               String offeringName, String sku, String unit, PlaceDto place, int quantity, int balance,
                               String userName, Long orderId, Long transferId, Long adjustmentId, String adjustmentNumber,
                               Long purchaseOrderId, String receiptNumber, String note) {
-        static MovementDto from(StockMovement m) {
+        /** {@code deliveries}: the deliveries behind PURCHASE movements, by id ({@link DeliveryLookup}). */
+        static MovementDto from(StockMovement m, Map<Long, DeliveryLookup.Delivery> deliveries) {
+            var delivery = m.getGoodsReceiptId() == null ? null : deliveries.get(m.getGoodsReceiptId());
             var o = m.getOffering();
             return new MovementDto(m.getId(), m.getCreatedAt(), m.getType(), m.getReason(), o.getId(), o.getName(), o.getSku(),
                     o.getUnitSymbol(), PlaceDto.from(m.getStorage()), m.getQuantity(), m.getBalance(),
                     m.getUser() == null ? null : m.getUser().getFullName(), m.getOrderId(), m.getTransferId(),
                     m.getAdjustmentId(), m.getAdjustment() == null ? null : m.getAdjustment().getAdjustmentNumber(),
-                    m.getGoodsReceipt() == null ? null : m.getGoodsReceipt().getPurchaseOrder().getId(),
-                    m.getGoodsReceipt() == null ? null : m.getGoodsReceipt().getReceiptNumber(), m.getNote());
+                    delivery == null ? null : delivery.purchaseOrderId(), delivery == null ? null : delivery.receiptNumber(),
+                    m.getNote());
         }
     }
 

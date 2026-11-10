@@ -8,7 +8,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import com.pos.catalog.Offering;
-import com.pos.catalog.OfferingType;
+import com.pos.common.OfferingType;
 
 class StockMovementsTest {
 

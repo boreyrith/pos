@@ -7,13 +7,16 @@ import { useState } from "react";
 
 import { CustomerDialog } from "@/components/customers/CustomerDialog";
 import { StatusBadge } from "@/components/StatusBadge";
+import { TierBadge } from "@/components/TierBadge";
 import { Badge, Button, Card, ErrorNote, Pagination, Spinner } from "@/components/ui";
 import { api, queryString } from "@/lib/api";
 import { useCan } from "@/lib/auth";
 import { dateTime, money } from "@/lib/format";
 import { useStoreSettings } from "@/lib/queries";
-import type { CustomerDetail, OrderSummary, Page } from "@/lib/types";
+import type { CustomerDetail, LoyaltyRules, LoyaltyTransaction, OrderSummary, Page } from "@/lib/types";
 import { useT } from "@/lib/i18n";
+
+import { AdjustPointsDialog, LedgerTable } from "../../marketing/LoyaltyTab";
 
 /** A customer's details, what they have spent, and their orders. */
 export function CustomerView({ id }: { id: number }) {
@@ -38,11 +41,12 @@ export function CustomerView({ id }: { id: number }) {
 
   return (
     <div className="mx-auto max-w-5xl p-4 lg:p-8">
-      <Link href="/orders?tab=customers" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-text">
+      <Link href="/customers" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-text">
         <ArrowLeft className="size-4" aria-hidden />{" "}{t("Customers")}
       </Link>
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold">{c.name}</h1>
+        <TierBadge tier={c.tier} />
         <span className="font-mono text-sm text-muted">{c.code}</span>
         {c.walkIn && <Badge tone="primary">{t("Default for walk-in sales")}</Badge>}
         {!c.active && <Badge>{t("Inactive")}</Badge>}
@@ -128,8 +132,50 @@ export function CustomerView({ id }: { id: number }) {
           <dd>{dateTime(c.createdAt, tz)}</dd>
         </dl>
       </div>
+      {!c.walkIn && <PointsSection customerId={c.id} name={c.name} balance={c.pointsBalance} currency={currency} />}
       {editing && <CustomerDialog customer={c} onClose={() => setEditing(false)} />}
     </div>
+  );
+}
+
+/** The customer's loyalty points: balance, every change, and adjusting them ("Manage loyalty"). */
+function PointsSection({ customerId, name, balance, currency }: { customerId: number; name: string; balance: number; currency: string }) {
+  const t = useT();
+  const can = useCan();
+  const [adjusting, setAdjusting] = useState(false);
+  const rules = useQuery({ queryKey: ["loyalty", "rules"], queryFn: () => api<LoyaltyRules>("/loyalty/rules") });
+  const history = useQuery({
+    queryKey: ["loyalty", "history", customerId],
+    queryFn: () => api<LoyaltyTransaction[]>(`/loyalty/customers/${customerId}/history`),
+  });
+  if (!rules.data?.enabled && balance === 0 && !history.data?.length) return null;
+  return (
+    <Card className="mt-5 p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <h2 className="text-sm font-semibold">{t("Loyalty points")}</h2>
+        <span className="text-lg font-semibold tabular-nums">{balance.toLocaleString()}</span>
+        {rules.data && balance > 0 && (
+          <span className="text-sm text-muted">
+            {t("worth {amount}", { amount: money(Math.round(balance * rules.data.pointValue * 100) / 100, currency) })}
+          </span>
+        )}
+        {can("LOYALTY_MANAGE") && (
+          <Button size="sm" variant="secondary" className="ml-auto" onClick={() => setAdjusting(true)}>
+            {t("Adjust points")}
+          </Button>
+        )}
+      </div>
+      {history.isPending ? (
+        <Spinner />
+      ) : history.error ? (
+        <ErrorNote error={history.error} />
+      ) : history.data.length === 0 ? (
+        <p className="text-sm text-muted">{t("No points yet.")}</p>
+      ) : (
+        <LedgerTable rows={history.data} />
+      )}
+      {adjusting && <AdjustPointsDialog customer={{ id: customerId, code: null, name, phone: null }} onClose={() => setAdjusting(false)} />}
+    </Card>
   );
 }
 

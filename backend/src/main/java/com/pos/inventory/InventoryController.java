@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -25,6 +26,8 @@ import com.pos.audit.AuditAction;
 import com.pos.audit.AuditService;
 import com.pos.audit.Changes;
 import com.pos.auth.AuthUser;
+import com.pos.branch.Branch;
+import com.pos.branch.BranchRepository;
 import com.pos.common.ApiException;
 import com.pos.common.PageResponse;
 import com.pos.settings.SettingsService;
@@ -50,11 +53,13 @@ public class InventoryController {
     private final BranchContext context;
     private final SettingsService settings;
     private final AuditService audit;
+    private final DeliveryLookup deliveries;
 
     public InventoryController(BranchRepository branches, StorageRepository storages, StockMovementRepository movements,
                                StockService stock, TransferService transfers, BranchContext context,
-                               SettingsService settings, AuditService audit) {
+                               SettingsService settings, AuditService audit, DeliveryLookup deliveries) {
         this.audit = audit;
+        this.deliveries = deliveries;
         this.branches = branches;
         this.storages = storages;
         this.movements = movements;
@@ -249,8 +254,9 @@ public class InventoryController {
         Instant start = from == null ? null : from.atStartOfDay(settings.current().timezone()).toInstant();
         Instant end = to == null ? null : to.plusDays(1).atStartOfDay(settings.current().timezone()).toInstant();
         var pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 200), Sort.by(Sort.Direction.DESC, "id"));
-        return PageResponse.of(movements.search(offeringId, storageId, context.viewScope(user, branchId), type, start,
-                end, pageable), MovementDto::from);
+        var found = movements.search(offeringId, storageId, context.viewScope(user, branchId), type, start, end, pageable);
+        var delivered = deliveries.byIds(found.stream().map(StockMovement::getGoodsReceiptId).filter(Objects::nonNull).distinct().toList());
+        return PageResponse.of(found, m -> MovementDto.from(m, delivered));
     }
 
     private static String blankToNull(String s) {

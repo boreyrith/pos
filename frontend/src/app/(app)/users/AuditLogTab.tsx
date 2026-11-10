@@ -20,6 +20,8 @@ const CATEGORIES: Record<AuditCategory, { label: string; tone: "neutral" | "prim
   INVENTORY: { label: msg("Inventory"), tone: "success" },
   PURCHASING: { label: msg("Purchasing"), tone: "success" },
   SALES: { label: msg("Sales"), tone: "warning" },
+  MARKETING: { label: msg("Marketing"), tone: "primary" },
+  ACCOUNTING: { label: msg("Accounting"), tone: "success" },
 };
 
 /** Actions worth drawing the eye to. */
@@ -38,6 +40,8 @@ const ACTION_LABELS: Record<string, string> = {
   USER_PASSWORD_RESET: msg("User password reset"),
   USER_UNLOCKED: msg("User unlocked"),
   USER_SESSIONS_REVOKED: msg("User signed out everywhere"),
+  SESSION_ENDED: msg("Session signed out"),
+  PROFILE_PHOTO_CHANGED: msg("Profile photo changed"),
   ROLE_CREATED: msg("Role created"),
   ROLE_UPDATED: msg("Role updated"),
   ROLE_DELETED: msg("Role deleted"),
@@ -88,6 +92,30 @@ const ACTION_LABELS: Record<string, string> = {
   VENDOR_INVOICE_RECORDED: msg("Vendor invoice recorded"),
   VENDOR_INVOICE_VOIDED: msg("Vendor invoice voided"),
   VENDOR_PAYMENT_RECORDED: msg("Vendor payment recorded"),
+  PROMOTION_CREATED: msg("Promotion created"),
+  PROMOTION_UPDATED: msg("Promotion changed"),
+  PROMOTION_DELETED: msg("Promotion deleted"),
+  COUPONS_CREATED: msg("Coupon codes added"),
+  COUPON_UPDATED: msg("Coupon code changed"),
+  LOYALTY_SETTINGS_UPDATED: msg("Loyalty rules changed"),
+  POINTS_ADJUSTED: msg("Points adjusted"),
+  SEGMENT_CREATED: msg("Segment created"),
+  SEGMENT_UPDATED: msg("Segment changed"),
+  SEGMENT_DELETED: msg("Segment deleted"),
+  CAMPAIGN_CREATED: msg("Campaign created"),
+  CAMPAIGN_PREPARED: msg("Campaign prepared"),
+  CAMPAIGN_EXPORTED: msg("Contacts exported"),
+  CAMPAIGN_DELETED: msg("Campaign deleted"),
+  ACCOUNT_CREATED: msg("Account added"),
+  ACCOUNT_UPDATED: msg("Account changed"),
+  BOOKS_STARTED: msg("Books started"),
+  BOOKS_LOCKED: msg("Books closed or reopened"),
+  ACCOUNTING_MODE_CHANGED: msg("Accounting mode changed"),
+  JOURNAL_POSTED: msg("Journal entry posted"),
+  JOURNAL_REVERSED: msg("Journal entry reversed"),
+  OTHER_INCOME_RECORDED: msg("Income recorded"),
+  OTHER_EXPENSE_RECORDED: msg("Expense recorded"),
+  OTHER_TRANSACTION_VOIDED: msg("Income or expense voided"),
 };
 
 /** An action without a label (added later): its code in words. */

@@ -29,7 +29,7 @@ export function PurchasingView() {
   const store = useStoreSettings();
   const tab = TABS.find((x) => x.key === params.get("tab")) ?? TABS[0];
   const summary = useQuery({ queryKey: ["payables"], queryFn: () => api<PayablesSummary>("/vendor-invoices/summary") });
-  const currency = store.data?.currency ?? "USD";
+  const currency = store.data?.currency;
 
   return (
     <div className="mx-auto max-w-6xl p-4 lg:p-8">

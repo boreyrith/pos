@@ -3,8 +3,10 @@ import type { DiscountType, OfferingType, TaxMode } from "./types";
 /**
  * Mirrors PricingCalculator.java so the cart shows the same totals the server will charge. Works
  * in integer cents. A line costs listed price x quantity (x hours for hourly services); the listed
- * price includes its tax or excludes it. A line's own item discount (% or amount) comes off first;
- * the order discount is then worked out on what is left and shared over tax groups by value; then per group an included tax is taken out (amount x r / (1 + r))
+ * price includes its tax or excludes it. A line's promotion (an amount from the server's promotion
+ * engine) comes off first, then its own item discount (% of what is left, or an amount). At order
+ * level: the order promotion, the cashier's order discount on what is left, then loyalty points;
+ * together they are shared over tax groups by value; then per group an included tax is taken out (amount x r / (1 + r))
  * and an added tax goes on top (amount x r). Each group's discount and tax are then shared over
  * its lines by value, the last line taking the leftover cent.
  * Both sides are checked against backend/src/test/resources/pricing-cases.json.
@@ -22,9 +24,11 @@ export interface PricingLine {
   /** Hours worked, for hourly services only. */
   hours?: number | null;
   tax: TaxKey;
-  /** An item discount on this line. */
+  /** An item discount on this line (% of the line after its promotion, or an amount). */
   discountType?: DiscountType | null;
   discountValue?: number;
+  /** What a promotion takes off the line, in money, as the server worked it out. */
+  promoDiscount?: number;
 }
 
 export interface TaxLine extends TaxKey {
@@ -33,9 +37,10 @@ export interface TaxLine extends TaxKey {
   tax: number;
 }
 
-/** A line's share of the order: `discount` is its item discount plus its share of the order discount; `net` is after both without tax; `paid` = net + tax. */
+/** A line's share of the order: `discount` is its promotion and item discount plus its share of the order-level discounts; `net` is after all of them without tax; `paid` = net + tax. */
 export interface LineSplit {
   total: number;
+  promoDiscount: number;
   itemDiscount: number;
   discount: number;
   net: number;
@@ -46,10 +51,16 @@ export interface LineSplit {
 export interface PricingTotals {
   /** Before any discount. */
   subtotal: number;
+  /** Promotions on all lines. */
+  promoDiscount: number;
   /** Item discounts on all lines. */
   itemDiscount: number;
-  /** The order discount, on the subtotal after item discounts. */
+  /** The order promotion (coupon or automatic). */
+  orderPromoDiscount: number;
+  /** The cashier's order discount, on what is left after the order promotion. */
   discount: number;
+  /** Loyalty points redeemed, in money. */
+  pointsDiscount: number;
   taxAdded: number;
   taxIncluded: number;
   total: number;
@@ -65,7 +76,7 @@ export interface PricingTotals {
 export const NOT_TAXED = "Not taxed";
 
 /**
- * The tax a catalog entry is charged under. Mirrors TaxService.keyFor: nothing under No VAT or for
+ * The tax a catalog entry is charged under. Mirrors OfferingTaxes.keyFor: nothing under No VAT or for
  * types outside the scope; the default rate is named after the store's tax label; an exempt (0%)
  * rate keeps its name; included only in VAT included mode.
  */
@@ -101,19 +112,32 @@ function discountCents(cents: number, type: DiscountType | null | undefined, val
   return type === "PERCENT" ? roundCents((cents * Math.min(value, 100)) / 100) : Math.min(toCents(value), cents);
 }
 
-/** The money an item discount takes off a line. */
+/** A promotion's cents on a line: never more than the line. */
+const promoCents = (line: PricingLine, gross: number) => Math.min(Math.max(0, toCents(line.promoDiscount ?? 0)), gross);
+
+/** The money an item discount takes off a line (worked out on the line after its promotion). */
 export function itemDiscountOf(line: PricingLine) {
-  return discountCents(lineCents(line), line.discountType, line.discountValue) / 100;
+  const gross = lineCents(line);
+  return discountCents(gross - promoCents(line, gross), line.discountType, line.discountValue) / 100;
 }
 
-export function calculateTotals(lines: PricingLine[], discountType: DiscountType | null, discountValue: number): PricingTotals {
+/** `orderPromo` and `points` are money amounts, each capped at what is left before it. */
+export function calculateTotals(
+  lines: PricingLine[],
+  discountType: DiscountType | null,
+  discountValue: number,
+  orderPromo = 0,
+  points = 0,
+): PricingTotals {
   // Grouped like Java's TaxKey equality: same rate id, name, rate and included.
   const groups = new Map<string, { key: TaxKey; gross: number; members: number[] }>();
   const gross = lines.map(lineCents);
-  const itemOff = lines.map((l, i) => discountCents(gross[i], l.discountType, l.discountValue));
-  // What the order discount and tax work from: each line after its item discount.
-  const cents = gross.map((g, i) => g - itemOff[i]);
+  const promoOff = lines.map((l, i) => promoCents(l, gross[i]));
+  const itemOff = lines.map((l, i) => discountCents(gross[i] - promoOff[i], l.discountType, l.discountValue));
+  // What the order-level discounts and tax work from: each line after its promotion and item discount.
+  const cents = gross.map((g, i) => g - promoOff[i] - itemOff[i]);
   const grossSubtotal = gross.reduce((n, c) => n + c, 0);
+  const promoDiscount = promoOff.reduce((n, c) => n + c, 0);
   const itemDiscount = itemOff.reduce((n, c) => n + c, 0);
   let subtotal = 0;
   lines.forEach((line, i) => {
@@ -125,7 +149,12 @@ export function calculateTotals(lines: PricingLine[], discountType: DiscountType
     groups.set(id, g);
   });
 
-  const discount = discountCents(subtotal, discountType, discountValue);
+  const capped = (amount: number, most: number) => (amount > 0 && most > 0 ? Math.min(toCents(amount), most) : 0);
+  const orderPromoCents = capped(orderPromo, subtotal);
+  const manual = discountCents(subtotal - orderPromoCents, discountType, discountValue);
+  const pointsCents = capped(points, subtotal - orderPromoCents - manual);
+  // Everything taken off at order level, shared over the tax groups and lines together.
+  const discount = orderPromoCents + manual + pointsCents;
 
   const taxes: TaxLine[] = [];
   const splits: LineSplit[] = new Array(lines.length);
@@ -166,8 +195,9 @@ export function calculateTotals(lines: PricingLine[], discountType: DiscountType
       const net = g.key.included ? t - d - lt : t - d;
       splits[j] = {
         total: gross[j] / 100,
+        promoDiscount: promoOff[j] / 100,
         itemDiscount: itemOff[j] / 100,
-        discount: (itemOff[j] + d) / 100,
+        discount: (promoOff[j] + itemOff[j] + d) / 100,
         net: net / 100,
         tax: lt / 100,
         paid: (net + lt) / 100,
@@ -177,8 +207,11 @@ export function calculateTotals(lines: PricingLine[], discountType: DiscountType
 
   return {
     subtotal: grossSubtotal / 100,
+    promoDiscount: promoDiscount / 100,
     itemDiscount: itemDiscount / 100,
-    discount: discount / 100,
+    orderPromoDiscount: orderPromoCents / 100,
+    discount: manual / 100,
+    pointsDiscount: pointsCents / 100,
     taxAdded: added / 100,
     taxIncluded: included / 100,
     total: (subtotal - discount + added) / 100,

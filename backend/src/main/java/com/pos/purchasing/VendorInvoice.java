@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.pos.auth.User;
+import com.pos.vendor.Vendor;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -32,6 +33,11 @@ public class VendorInvoice {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "purchase_order_id")
     private PurchaseOrder purchaseOrder;
+
+    /** Without a purchase order: the expense account it is booked to (see accounting). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "expense_account_id")
+    private com.pos.accounting.Account expenseAccount;
 
     @Column(name = "invoice_number", nullable = false, length = 60)
     private String invoiceNumber;

@@ -65,7 +65,7 @@ export function PurchaseOrderDialog({ order, onClose, onSaved }: { order?: Purch
     queryFn: () => api<Page<Offering>>(`/offerings${queryString({ q: search.trim(), size: 8 })}&type=PRODUCT&type=ITEM`),
     enabled: search.trim().length > 0,
   });
-  const currency = store.data?.currency ?? "USD";
+  const currency = store.data?.currency;
 
   // A draft being edited only knows each line's chosen unit; load the others from the catalog.
   const details = useQuery({

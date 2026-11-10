@@ -1112,5 +1112,334 @@
         }
       ]
     }
+  },
+  {
+    "name": "P1: Line promotion first, then a % item discount on what is left (VAT added)",
+    "lines": [
+      {
+        "unitPrice": "20.00",
+        "quantity": 2,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        },
+        "promoDiscount": "8.00",
+        "discountType": "PERCENT",
+        "discountValue": "10"
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "expected": {
+      "subtotal": "40.00",
+      "promoDiscount": "8.00",
+      "itemDiscount": "3.20",
+      "orderPromoDiscount": "0.00",
+      "discount": "0.00",
+      "pointsDiscount": "0.00",
+      "taxAdded": "2.88",
+      "taxIncluded": "0.00",
+      "total": "31.68",
+      "taxableAmount": "28.80",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "40.00",
+          "promoDiscount": "8.00",
+          "itemDiscount": "3.20",
+          "discount": "11.20",
+          "net": "28.80",
+          "tax": "2.88",
+          "paid": "31.68"
+        }
+      ]
+    }
+  },
+  {
+    "name": "P2: Order promotion, then the cashier's % order discount on what is left, shared over two tax groups",
+    "lines": [
+      {
+        "unitPrice": "30.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        },
+        "promoDiscount": "3.00"
+      },
+      {
+        "unitPrice": "12.50",
+        "quantity": 2,
+        "hours": null,
+        "tax": {
+          "rateId": 2,
+          "name": "Exempt",
+          "rate": "0",
+          "included": false
+        }
+      }
+    ],
+    "discountType": "PERCENT",
+    "discountValue": "10",
+    "orderPromo": "5.00",
+    "expected": {
+      "subtotal": "55.00",
+      "promoDiscount": "3.00",
+      "itemDiscount": "0.00",
+      "orderPromoDiscount": "5.00",
+      "discount": "4.70",
+      "pointsDiscount": "0.00",
+      "taxAdded": "2.20",
+      "taxIncluded": "0.00",
+      "total": "44.50",
+      "taxableAmount": "21.96",
+      "nonTaxableAmount": "20.34",
+      "lines": [
+        {
+          "total": "30.00",
+          "promoDiscount": "3.00",
+          "itemDiscount": "0.00",
+          "discount": "8.04",
+          "net": "21.96",
+          "tax": "2.20",
+          "paid": "24.16"
+        },
+        {
+          "total": "25.00",
+          "promoDiscount": "0.00",
+          "itemDiscount": "0.00",
+          "discount": "4.66",
+          "net": "20.34",
+          "tax": "0.00",
+          "paid": "20.34"
+        }
+      ]
+    }
+  },
+  {
+    "name": "P3: VAT included with an order promotion and loyalty points",
+    "lines": [
+      {
+        "unitPrice": "11.00",
+        "quantity": 3,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        }
+      },
+      {
+        "unitPrice": "5.50",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        },
+        "promoDiscount": "0.55"
+      }
+    ],
+    "discountType": null,
+    "discountValue": null,
+    "orderPromo": "2.20",
+    "points": "1.10",
+    "expected": {
+      "subtotal": "38.50",
+      "promoDiscount": "0.55",
+      "itemDiscount": "0.00",
+      "orderPromoDiscount": "2.20",
+      "discount": "0.00",
+      "pointsDiscount": "1.10",
+      "taxAdded": "0.00",
+      "taxIncluded": "3.15",
+      "total": "34.65",
+      "taxableAmount": "31.50",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "33.00",
+          "promoDiscount": "0.00",
+          "itemDiscount": "0.00",
+          "discount": "2.87",
+          "net": "27.39",
+          "tax": "2.74",
+          "paid": "30.13"
+        },
+        {
+          "total": "5.50",
+          "promoDiscount": "0.55",
+          "itemDiscount": "0.00",
+          "discount": "0.98",
+          "net": "4.11",
+          "tax": "0.41",
+          "paid": "4.52"
+        }
+      ]
+    }
+  },
+  {
+    "name": "P4: A promotion bigger than its line and points bigger than what is left are both capped",
+    "lines": [
+      {
+        "unitPrice": "4.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        },
+        "promoDiscount": "9.99"
+      },
+      {
+        "unitPrice": "6.00",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 2,
+          "name": "Exempt",
+          "rate": "0",
+          "included": false
+        }
+      }
+    ],
+    "discountType": "AMOUNT",
+    "discountValue": "1.00",
+    "orderPromo": "2.00",
+    "points": "50.00",
+    "expected": {
+      "subtotal": "10.00",
+      "promoDiscount": "4.00",
+      "itemDiscount": "0.00",
+      "orderPromoDiscount": "2.00",
+      "discount": "1.00",
+      "pointsDiscount": "3.00",
+      "taxAdded": "0.00",
+      "taxIncluded": "0.00",
+      "total": "0.00",
+      "taxableAmount": "0.00",
+      "nonTaxableAmount": "0.00",
+      "lines": [
+        {
+          "total": "4.00",
+          "promoDiscount": "4.00",
+          "itemDiscount": "0.00",
+          "discount": "4.00",
+          "net": "0.00",
+          "tax": "0.00",
+          "paid": "0.00"
+        },
+        {
+          "total": "6.00",
+          "promoDiscount": "0.00",
+          "itemDiscount": "0.00",
+          "discount": "6.00",
+          "net": "0.00",
+          "tax": "0.00",
+          "paid": "0.00"
+        }
+      ]
+    }
+  },
+  {
+    "name": "P5: Every layer at once over three tax groups, with an hourly service",
+    "lines": [
+      {
+        "unitPrice": "15.00",
+        "quantity": 1,
+        "hours": "1.5",
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": false
+        },
+        "promoDiscount": "2.25"
+      },
+      {
+        "unitPrice": "3.33",
+        "quantity": 3,
+        "hours": null,
+        "tax": {
+          "rateId": 1,
+          "name": "VAT",
+          "rate": "0.10",
+          "included": true
+        },
+        "discountType": "AMOUNT",
+        "discountValue": "0.99"
+      },
+      {
+        "unitPrice": "7.77",
+        "quantity": 1,
+        "hours": null,
+        "tax": {
+          "rateId": 2,
+          "name": "Exempt",
+          "rate": "0",
+          "included": false
+        },
+        "promoDiscount": "0.77",
+        "discountType": "PERCENT",
+        "discountValue": "15"
+      }
+    ],
+    "discountType": "PERCENT",
+    "discountValue": "5",
+    "orderPromo": "3.00",
+    "points": "2.50",
+    "expected": {
+      "subtotal": "40.26",
+      "promoDiscount": "3.02",
+      "itemDiscount": "2.04",
+      "orderPromoDiscount": "3.00",
+      "discount": "1.61",
+      "pointsDiscount": "2.50",
+      "taxAdded": "1.62",
+      "taxIncluded": "0.65",
+      "total": "29.71",
+      "taxableAmount": "22.69",
+      "nonTaxableAmount": "4.75",
+      "lines": [
+        {
+          "total": "22.50",
+          "promoDiscount": "2.25",
+          "itemDiscount": "0.00",
+          "discount": "6.34",
+          "net": "16.16",
+          "tax": "1.62",
+          "paid": "17.78"
+        },
+        {
+          "total": "9.99",
+          "promoDiscount": "0.00",
+          "itemDiscount": "0.99",
+          "discount": "2.81",
+          "net": "6.53",
+          "tax": "0.65",
+          "paid": "7.18"
+        },
+        {
+          "total": "7.77",
+          "promoDiscount": "0.77",
+          "itemDiscount": "1.05",
+          "discount": "3.02",
+          "net": "4.75",
+          "tax": "0.00",
+          "paid": "4.75"
+        }
+      ]
+    }
   }
 ]

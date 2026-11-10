@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pos.common.PageResponse;
-import com.pos.settings.SettingsService;
+import com.pos.common.StoreTimeZone;
 
 /** The audit log, newest first. Admins only. {@code from}/{@code to} are inclusive days. */
 @RestController
@@ -31,11 +31,11 @@ public class AuditController {
     }
 
     private final AuditLogRepository repository;
-    private final SettingsService settings;
+    private final StoreTimeZone zone;
 
-    public AuditController(AuditLogRepository repository, SettingsService settings) {
+    public AuditController(AuditLogRepository repository, StoreTimeZone zone) {
         this.repository = repository;
-        this.settings = settings;
+        this.zone = zone;
     }
 
     @GetMapping("/audit-logs")
@@ -49,7 +49,7 @@ public class AuditController {
                                          @RequestParam(required = false) String q,
                                          @RequestParam(defaultValue = "0") int page,
                                          @RequestParam(defaultValue = "50") int size) {
-        var zone = settings.current().timezone();
+        var zone = this.zone.timezone();
         Instant start = from == null ? null : from.atStartOfDay(zone).toInstant();
         Instant end = to == null ? null : to.plusDays(1).atStartOfDay(zone).toInstant();
         var pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 200), Sort.by(Sort.Direction.DESC, "id"));

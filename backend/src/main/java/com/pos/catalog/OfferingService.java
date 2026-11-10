@@ -21,6 +21,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.pos.common.OfferingType;
+import com.pos.inventory.StockBookkeeping;
+import com.pos.settings.SettingsService;
 import com.pos.tax.TaxSettings;
 import com.pos.catalog.CatalogDtos.ComponentRequest;
 import com.pos.catalog.CatalogDtos.OfferingDto;
@@ -48,7 +51,6 @@ import com.pos.inventory.StockService;
 import com.pos.inventory.StockService.Ref;
 import com.pos.inventory.Storage;
 import com.pos.inventory.StorageRepository;
-import com.pos.settings.SettingsService;
 import com.pos.tax.TaxRate;
 import com.pos.tax.TaxRateRepository;
 
@@ -69,11 +71,14 @@ public class OfferingService {
 
     private final OfferingBarcodeRepository barcodes;
 
+    private final StockBookkeeping postings;
+
     public OfferingService(OfferingRepository offerings, CategoryRepository categories, UnitRepository units,
                            StockService stock, BranchContext branches, StorageRepository storages,
                            TaxRateRepository taxRates, SettingsService settings, AuditService audit,
                            OfferingImageRepository images, AdjustmentService adjustmentService,
-                           OfferingBarcodeRepository barcodes) {
+                           OfferingBarcodeRepository barcodes, StockBookkeeping postings) {
+        this.postings = postings;
         this.barcodes = barcodes;
         this.audit = audit;
         this.images = images;
@@ -146,6 +151,7 @@ public class OfferingService {
             Storage selling = branches.sellingStorage(user);
             stock.add(selling.getId(), o.getId(), req.stock(), MovementType.OPENING,
                     new Ref(user.id(), null, null, "Opening stock"));
+            postings.openingStock(o, selling.getBranch().getId(), req.stock(), user.id());
         }
         audit.log(AuditAction.OFFERING_CREATED, "Offering", o.getId(), "Added " + label(o) + " " + o.getName() + " ("
                 + o.getSku() + ") at " + o.getPrice().stripTrailingZeros().toPlainString());
@@ -153,9 +159,10 @@ public class OfferingService {
     }
 
     @Transactional
-    public OfferingDto update(Long id, OfferingRequest req, List<Long> storageIds) {
+    public OfferingDto update(Long id, OfferingRequest req, List<Long> storageIds, Long userId) {
         Offering o = findWithComponents(id);
         Map<String, String> before = snapshot(o);
+        BigDecimal costBefore = o.getCost();
         if (o.getType() != req.type()) {
             throw ApiException.badRequest("The type of a catalog entry can't be changed. Create a new one instead.");
         }
@@ -167,6 +174,10 @@ public class OfferingService {
         }
         apply(o, req);
         offerings.saveAndFlush(o);
+        if (costBefore == null ? o.getCost().signum() != 0 : costBefore.compareTo(o.getCost()) != 0) {
+            // What is on hand is worth the new cost.
+            postings.costChanged(o, costBefore, o.getCost(), userId);
+        }
         Map<String, String> after = snapshot(o);
         Changes changes = new Changes();
         before.forEach((field, value) -> changes.add(field, value, after.get(field)));

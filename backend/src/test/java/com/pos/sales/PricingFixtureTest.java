@@ -13,8 +13,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import com.pos.sales.PricingCalculator.Line;
-import com.pos.sales.PricingCalculator.TaxKey;
 import com.pos.sales.PricingCalculator.Totals;
+import com.pos.tax.TaxKey;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -48,13 +48,23 @@ class PricingFixtureTest {
                     new TaxKey(t.get("rateId").asLong(), t.get("name").asString(), rate.signum() == 0 ? BigDecimal.ZERO : rate,
                             t.get("included").asBoolean()),
                     l.has("discountType") ? DiscountType.valueOf(l.get("discountType").asString()) : null,
-                    l.has("discountValue") ? new BigDecimal(l.get("discountValue").asString()) : null));
+                    l.has("discountValue") ? new BigDecimal(l.get("discountValue").asString()) : null,
+                    l.has("promoDiscount") ? new BigDecimal(l.get("promoDiscount").asString()) : null));
         }
         DiscountType type = c.get("discountType").isNull() ? null : DiscountType.valueOf(c.get("discountType").asString());
         BigDecimal value = c.get("discountValue").isNull() ? null : new BigDecimal(c.get("discountValue").asString());
 
-        Totals t = PricingCalculator.calculate(lines, type, value);
+        BigDecimal orderPromo = c.has("orderPromo") ? new BigDecimal(c.get("orderPromo").asString()) : null;
+        BigDecimal points = c.has("points") ? new BigDecimal(c.get("points").asString()) : null;
+
+        Totals t = PricingCalculator.calculate(lines, type, value, orderPromo, points);
         JsonNode e = c.get("expected");
+        // Promotion and points cases also pin down each layer.
+        if (e.has("promoDiscount")) {
+            assertThat(t.promoDiscount()).as("promotions").isEqualByComparingTo(e.get("promoDiscount").asString());
+            assertThat(t.orderPromoDiscount()).as("order promotion").isEqualByComparingTo(e.get("orderPromoDiscount").asString());
+            assertThat(t.pointsDiscount()).as("points").isEqualByComparingTo(e.get("pointsDiscount").asString());
+        }
         assertThat(t.subtotal()).as("subtotal").isEqualByComparingTo(e.get("subtotal").asString());
         assertThat(t.discount()).as("discount").isEqualByComparingTo(e.get("discount").asString());
         assertThat(t.itemDiscount()).as("item discount").isEqualByComparingTo(e.get("itemDiscount").asString());
@@ -68,6 +78,9 @@ class PricingFixtureTest {
             var split = t.lines().get(i);
             assertThat(split.discount()).as("line %d discount", i).isEqualByComparingTo(el.get("discount").asString());
             assertThat(split.itemDiscount()).as("line %d item discount", i).isEqualByComparingTo(el.get("itemDiscount").asString());
+            if (el.has("promoDiscount")) {
+                assertThat(split.promoDiscount()).as("line %d promotion", i).isEqualByComparingTo(el.get("promoDiscount").asString());
+            }
             assertThat(split.net()).as("line %d net", i).isEqualByComparingTo(el.get("net").asString());
             assertThat(split.tax()).as("line %d tax", i).isEqualByComparingTo(el.get("tax").asString());
             assertThat(split.paid()).as("line %d paid", i).isEqualByComparingTo(el.get("paid").asString());

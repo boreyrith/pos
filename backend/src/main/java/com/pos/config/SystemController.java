@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.pos.auth.LoginAttempts;
 import com.pos.catalog.OfferingService;
+import com.pos.common.AppProperties;
 import com.pos.settings.SettingsService;
 
 /**

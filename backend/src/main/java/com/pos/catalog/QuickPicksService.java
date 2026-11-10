@@ -35,12 +35,15 @@ public class QuickPicksService {
     private final OfferingService offerings;
     private final OfferingRepository repo;
     private final BranchContext branches;
+    private final SalesRanking ranking;
 
-    public QuickPicksService(JdbcClient jdbc, OfferingService offerings, OfferingRepository repo, BranchContext branches) {
+    public QuickPicksService(JdbcClient jdbc, OfferingService offerings, OfferingRepository repo, BranchContext branches,
+                             SalesRanking ranking) {
         this.jdbc = jdbc;
         this.offerings = offerings;
         this.repo = repo;
         this.branches = branches;
+        this.ranking = ranking;
     }
 
     /** Favourites in the order they were added. */
@@ -72,27 +75,9 @@ public class QuickPicksService {
     /** What sold most in this branch over the last {@code days}, by units kept. */
     @Transactional(readOnly = true)
     public List<TopSeller> topSellers(AuthUser user, int days, int limit, List<Long> storageIds) {
-        Map<Long, Long> sold = new HashMap<>();
-        List<Long> ranked = jdbc.sql("""
-                        SELECT i.offering_id, SUM(i.quantity - i.refunded_qty) AS units
-                        FROM order_items i JOIN orders o ON o.id = i.order_id
-                        WHERE o.branch_id = :branch AND o.status IN ('COMPLETED', 'PARTIALLY_REFUNDED')
-                          AND o.created_at >= :since
-                        GROUP BY i.offering_id
-                        HAVING units > 0
-                        ORDER BY units DESC, i.offering_id
-                        LIMIT :max
-                        """)
-                .param("branch", branches.currentBranchId(user))
-                .param("since", Instant.now().minus(days, ChronoUnit.DAYS))
-                // Some may no longer be for sale; fetch extra so the list still fills up.
-                .param("max", limit * 2)
-                .query((rs, n) -> {
-                    sold.put(rs.getLong(1), rs.getLong(2));
-                    return rs.getLong(1);
-                })
-                .list();
-        return inOrder(ranked, storageIds).stream().limit(limit)
+        // Some may no longer be for sale; fetch extra so the list still fills up.
+        Map<Long, Long> sold = ranking.unitsSold(branches.currentBranchId(user), Instant.now().minus(days, ChronoUnit.DAYS), limit * 2);
+        return inOrder(List.copyOf(sold.keySet()), storageIds).stream().limit(limit)
                 .map(o -> new TopSeller(o, sold.getOrDefault(o.id(), 0L))).toList();
     }
 

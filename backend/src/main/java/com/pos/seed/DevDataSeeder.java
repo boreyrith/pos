@@ -17,18 +17,18 @@ import com.pos.access.Role;
 import com.pos.access.RoleRepository;
 import com.pos.auth.User;
 import com.pos.auth.UserRepository;
+import com.pos.branch.Branch;
+import com.pos.branch.BranchRepository;
 import com.pos.catalog.Category;
 import com.pos.catalog.CategoryRepository;
 import com.pos.catalog.Offering;
 import com.pos.catalog.OfferingRepository;
 import com.pos.catalog.OfferingPack;
 import com.pos.catalog.PackageLine;
-import com.pos.catalog.OfferingType;
 import com.pos.catalog.PricingMode;
 import com.pos.catalog.ServiceComponent;
 import com.pos.catalog.UnitRepository;
-import com.pos.inventory.Branch;
-import com.pos.inventory.BranchRepository;
+import com.pos.common.OfferingType;
 import com.pos.inventory.MovementType;
 import com.pos.inventory.StockService;
 import com.pos.inventory.Storage;
@@ -60,12 +60,12 @@ public class DevDataSeeder implements ApplicationRunner {
     private final StockService stock;
     private final TaxRateRepository taxRates;
     private final RoleRepository roles;
-    private final com.pos.purchasing.VendorRepository vendors;
+    private final com.pos.vendor.VendorRepository vendors;
 
     public DevDataSeeder(UserRepository users, CategoryRepository categories, OfferingRepository offerings,
                          UnitRepository units, PasswordEncoder passwordEncoder, BranchRepository branches,
                          StorageRepository storages, StockService stock, TaxRateRepository taxRates, RoleRepository roles,
-                         com.pos.purchasing.VendorRepository vendors) {
+                         com.pos.vendor.VendorRepository vendors) {
         this.vendors = vendors;
         this.roles = roles;
         this.taxRates = taxRates;
@@ -373,8 +373,8 @@ public class DevDataSeeder implements ApplicationRunner {
         return roles.findByCode(code).orElseThrow();
     }
 
-    private static com.pos.purchasing.Vendor vendor(String code, String name, String contact, String phone, int terms) {
-        var v = new com.pos.purchasing.Vendor();
+    private static com.pos.vendor.Vendor vendor(String code, String name, String contact, String phone, int terms) {
+        var v = new com.pos.vendor.Vendor();
         v.setCode(code);
         v.setName(name);
         v.setContactName(contact);

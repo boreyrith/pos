@@ -14,13 +14,14 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.pos.auth.JwtAuthFilter;
+import com.pos.common.AppProperties;
 
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter, AppProperties props) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
@@ -30,10 +31,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/refresh", "/auth/logout").permitAll()
                         .requestMatchers("/actuator/health", "/docs/**", "/v3/api-docs/**", "/error").permitAll()
+                        // Checked by MetricsAccessFilter (METRICS_TOKEN), not by a staff sign-in.
+                        .requestMatchers(MetricsAccessFilter.PATH).permitAll()
                         .requestMatchers(HttpMethod.GET, "/settings/company/logo", "/offerings/*/image").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new MetricsAccessFilter(props.metricsToken()), JwtAuthFilter.class)
                 .build();
     }
 

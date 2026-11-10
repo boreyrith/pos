@@ -1,21 +1,23 @@
 package com.pos.settings;
 
 import java.time.Duration;
+import java.time.ZoneId;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.pos.common.AppProperties;
 import com.pos.common.SecretBox;
-import com.pos.config.AppProperties;
+import com.pos.common.StoreTimeZone;
 
 /**
  * Company settings, read on every sale and report, so they are cached in memory and refreshed
  * whenever they change. The first start fills the row from the environment defaults.
  */
 @Service
-public class SettingsService {
+public class SettingsService implements StoreTimeZone {
 
     private final CompanySettingsRepository repository;
     private final AppProperties props;
@@ -33,6 +35,11 @@ public class SettingsService {
         // that fails afterwards, or the cache would describe a row that doesn't exist.
         this.tx = new TransactionTemplate(txManager);
         this.tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
+
+    @Override
+    public ZoneId timezone() {
+        return current().timezone();
     }
 
     public Company current() {

@@ -219,40 +219,44 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
         <li>Under the <span class="ui">Sign in</span> button, choose <span class="ui">English</span> or <span class="ui km">ខ្មែរ</span> if you want to change the language.</li>
         <li>Enter your <span class="ui">Username</span> and <span class="ui">Password</span>, then press <span class="ui">Sign in</span>.</li>
       </ol>
-      <p>You land on the first page your role can use: the <span class="ui">Sell</span> screen for cashiers, the dashboard or catalog for others.</p>
+      <p>You land where your work is: the <span class="ui">Dashboard</span> if your role can see it, otherwise the <span class="ui">Sell</span> screen, otherwise your own pages (for example <span class="ui">Inventory</span>).</p>
       <div class="note rule"><b>Good to know</b>
         <ul>
           <li><b>First sign-in:</b> if an administrator created your account or reset your password, you must choose your own password (at least 8 characters) before you can continue. Type the password you were given as the current password.</li>
           <li><b>Wrong passwords:</b> after 5 wrong passwords in a row the account locks for 15 minutes. An administrator can unlock it sooner.</li>
-          <li><b>Staying signed in:</b> you stay signed in on that device for up to 7 days. Closing the browser does not sign you out, so always press <span class="ui">Sign out</span> on a shared computer.</li>
+          <li><b>Staying signed in:</b> <span class="ui">Remember me</span> is off unless you tick it. Ticked, you stay signed in on that device for up to 7 days, even after closing the browser, and the sign-in page fills in your username next time. Left unticked (best on a shared till), nothing is remembered and closing the browser signs you out. The device remembers whether you ticked it. Either way, sign out when you leave a shared computer: open <span class="ui">My account</span> (your name at the bottom of the side bar, or your picture at the top on a phone) and press <span class="ui">Sign out</span>.</li>
+          <li><b>Saving your password:</b> the app never stores your password itself. Your browser (Chrome, Edge, Safari) offers to save it after you sign in, and fills it in next time. Only accept on your own device.</li>
         </ul>
       </div>
 
       <h3 id="language">Changing the language</h3>
       <p>Everything on screen, including messages, reports and printed receipts, is available in English and Khmer. English is the default.</p>
       <ul>
-        <li>Press the language button in the side bar (it shows the other language's name), or open <span class="ui">My account</span> (your initials in the side bar) and use the language switch.</li>
+        <li>Press the language button in the side bar (it shows the other language's name), or open <span class="ui">My account</span> (your name in the side bar) and use the language switch under <span class="ui">Profile</span>.</li>
         <li>The change is instant and is saved to your account, so the same language follows you to any till or phone.</li>
         <li>Names you or your colleagues typed (products, customers, vendors, notes) stay as they were entered. Products also carry a Khmer name, shown under the English one.</li>
       </ul>
 
       <h3 id="layout">Finding your way around</h3>
-      <p>The side bar (top bar on a phone) shows only the pages your role can open:</p>
+      <p>The side bar (top bar on a phone) shows only the pages your role can open, in sections named for the work done there:</p>
       <div class="table"><table>
-        <thead><tr><th>Menu</th><th>What it is for</th></tr></thead>
+        <thead><tr><th>Section</th><th>Menu</th><th>What it is for</th></tr></thead>
         <tbody>
-          <tr><td><span class="ui">Sell</span></td><td>The till: build a sale, take cash or KHQR, print the receipt, hold sales.</td></tr>
-          <tr><td><span class="ui">Catalog</span></td><td>Products, items, services and packages, with prices, stock and pictures. Also units, categories and label printing.</td></tr>
+          <tr><td rowspan="2">Checkout &amp; sales</td><td><span class="ui">Sell</span></td><td>The till: build a sale, take cash or KHQR, print the receipt, hold sales.</td></tr>
+          <tr><td><span class="ui">Sales</span></td><td>Every invoice, and returns and refunds.</td></tr>
+          <tr><td rowspan="2">Customers</td><td><span class="ui">Customers</span></td><td>Everyone on file: details, purchases, points and tier.</td></tr>
+          <tr><td><span class="ui">Marketing</span></td><td>Promotions and coupon codes, loyalty points, customer segments and campaigns.</td></tr>
+          <tr><td rowspan="3">Products &amp; stock</td><td><span class="ui">Catalog</span></td><td>Products, items, services and packages, with prices, stock and pictures. Also units, categories and label printing.</td></tr>
           <tr><td><span class="ui">Inventory</span></td><td>Transfers between storages and branches, stock adjustments and counts, and the stock history.</td></tr>
           <tr><td><span class="ui">Purchasing</span></td><td>Vendors, purchase orders, deliveries, vendor invoices and payments.</td></tr>
-          <tr><td><span class="ui">Sales</span></td><td>Every invoice, returns and refunds, and customers.</td></tr>
-          <tr><td><span class="ui">Dashboard</span></td><td>Sales, profit, payments and alerts at a glance.</td></tr>
-          <tr><td><span class="ui">Reports</span></td><td>Detailed sales, inventory, purchasing and tax reports with CSV export.</td></tr>
-          <tr><td><span class="ui">Settings</span></td><td>Company details, branches and storages, taxes, currencies, KHQR, system information.</td></tr>
-          <tr><td><span class="ui">Users</span></td><td>Staff accounts, roles and permissions, and the audit log.</td></tr>
+          <tr><td rowspan="3">Reports &amp; finance</td><td><span class="ui">Dashboard</span></td><td>Sales, profit, payments and alerts at a glance.</td></tr>
+          <tr><td><span class="ui">Reports</span></td><td>Detailed sales, inventory, purchasing, financial and tax reports with CSV export.</td></tr>
+          <tr><td><span class="ui">Accounting</span></td><td>The books: cash and bank, income and expenses, and (in full accounting) the journal and chart of accounts.</td></tr>
+          <tr><td rowspan="2">Administration</td><td><span class="ui">Settings</span></td><td>Company details, branches and storages, taxes, currencies, KHQR, system information.</td></tr>
+          <tr><td><span class="ui">Users &amp; access</span></td><td>Staff accounts, roles and permissions, sessions and the audit log.</td></tr>
         </tbody>
       </table></div>
-      <p>At the bottom of the side bar: the branch you are working for, the language button, <span class="ui">My account</span>, and <span class="ui">Sign out</span>.</p>
+      <p>Everyone also has <span class="ui">Help › User manual</span> (this manual). At the bottom of the side bar: the language button (with the button that narrows or widens the side bar at the end of the row) and <span class="ui">My account</span> (your name), in three tabs: <span class="ui">Profile</span> (your account and personal details and language; press <span class="ui">Edit</span> to change your Khmer and Latin names, gender, date of birth, phone and email. Your display name, role and branch are changed by a user admin), <span class="ui">Devices</span> (where you are signed in; sign out any you don't recognise) and <span class="ui">Password</span>. <span class="ui">Sign out</span> is at the top right, next to your name. A picture is optional: press your picture at the top of <span class="ui">My account</span> to upload a photo (PNG, JPEG or WebP up to 2 MB; only you can see it), pick one of the animal avatars, or go back to your initials. The branch you are working for is at the top.</p>
 
       <h3 id="branches">Branches and storages</h3>
       <p>The business can have several <b>branches</b> (shops), for example <i>Main Shop</i> and <i>Siem Reap</i>. Each branch has one or more <b>storages</b>: places where stock is kept, such as <i>Showroom</i>, <i>Back Store</i> or <i>Warehouse</i>. One storage per branch is the <b>selling storage</b>: the till sells from it.</p>
@@ -410,7 +414,7 @@ flowchart LR
     <section class="chapter" id="customers" data-roles="cashier manager admin accountant">
       <h2><span class="chap">05</span>Customers</h2>
       <div class="for"><span class="role">Cashier</span><span class="role">Manager</span><span class="role">Accountant (view)</span></div>
-      <p>Open <span class="path">Sales › Customers</span>. Every sale belongs to a customer. The built-in <b>Walk-in Customer</b> (code <span class="path">WALK-IN</span>) is used whenever none is picked and cannot be switched off.</p>
+      <p>Open <span class="path">Customers</span>. Every sale belongs to a customer. The built-in <b>Walk-in Customer</b> (code <span class="path">WALK-IN</span>) is used whenever none is picked and cannot be switched off.</p>
       <ul>
         <li><span class="ui">New customer</span>: name, phone, email, address, VAT TIN (for businesses; printed on receipts) and a note. Customers get a code like <span class="path">CUS-00012</span>.</li>
         <li><b>Phone numbers are unique</b> however they are written: “012 345 678” and “012-345-678” are the same number.</li>
@@ -652,7 +656,7 @@ flowchart LR
 
       <h3 id="accounts">Staff accounts</h3>
       <ol class="steps">
-        <li><span class="path">Users › Users</span> › <span class="ui">Add user</span>: full name, username (letters, numbers, dots, dashes), email, phone, role and branch.</li>
+        <li><span class="path">Users &amp; access › Users</span> › <span class="ui">Add user</span>: display name (shown on receipts and in history), username (letters, numbers, dots, dashes), role and branch, and optional personal details: Khmer and Latin names, gender, date of birth, phone and email.</li>
         <li>Set a temporary password of at least 8 characters and give it to them in person. They must choose their own password when they first sign in.</li>
       </ol>
       <p>Under <span class="ui">Manage</span> for a user you can:</p>
@@ -666,7 +670,7 @@ flowchart LR
       <p>You cannot change your own role or disable your own account, and you can only give roles within your own permissions.</p>
 
       <h3 id="roles">Roles and permissions</h3>
-      <p>Each person has one role. A role is a set of permissions, and the server checks every action, so a hidden button is never the only protection. Under <span class="path">Users › Roles &amp; permissions</span> you can adjust the built-in roles or create new ones (<span class="ui">New role</span>, or <span class="ui">Copy as new role</span>). Some permissions bring others with them, such as refunding, which needs viewing orders. Each role also has a <b>maximum item discount</b>.</p>
+      <p>Each person has one role. A role is a set of permissions, and the server checks every action, so a hidden button is never the only protection. Under <span class="path">Users &amp; access › Roles &amp; permissions</span> you can adjust the built-in roles or create new ones (<span class="ui">New role</span>, or <span class="ui">Copy as new role</span>). Some permissions bring others with them, such as refunding, which needs viewing orders. Each role also has a <b>maximum item discount</b>.</p>
       <div class="table"><table class="matrix">
         <thead><tr><th>Permission (built-in roles)</th><th>Cashier</th><th>Inventory staff</th><th>Manager</th><th>Accountant</th><th>Admin</th></tr></thead>
         <tbody>
@@ -697,7 +701,7 @@ flowchart LR
       <p>The <b>Super Admin</b> role always has every permission, including new ones, and cannot be changed. Out of the box, only the Super Admin can create and edit roles (the <i>Manage roles</i> permission). At least one active Super Admin must remain.</p>
 
       <h3 id="audit">Audit log</h3>
-      <p><span class="path">Users › Audit log</span> records who did what and when: sign-ins and failed sign-ins, account changes, settings, catalog and stock changes, price changes, discounts, refunds, cancellations, held sales, purchasing and payments. Filter by person, area, dates or text. Open an entry to see exactly which fields changed. Security events, such as locked accounts and reused sessions, are highlighted.</p>
+      <p><span class="path">Users &amp; access › Audit log</span> records who did what and when: sign-ins and failed sign-ins, account changes, settings, catalog and stock changes, price changes, discounts, refunds, cancellations, held sales, purchasing and payments. Filter by person, area, dates or text. Open an entry to see exactly which fields changed. Security events, such as locked accounts and reused sessions, are highlighted.</p>
     </section>
 
     <!-- 13 -->

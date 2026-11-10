@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 import com.pos.auth.User;
+import com.pos.branch.Branch;
 import com.pos.customer.Customer;
-import com.pos.inventory.Branch;
 import com.pos.sales.Order;
 
 import jakarta.persistence.Column;

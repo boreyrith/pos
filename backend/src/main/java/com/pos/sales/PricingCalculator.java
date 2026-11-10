@@ -9,12 +9,16 @@ import java.util.Map;
 
 import com.pos.common.ApiException;
 import com.pos.common.Money;
+import com.pos.tax.TaxKey;
 
 /**
  * Order totals with named tax rates. A line costs listed price x quantity (x hours for hourly
- * services); the listed price either includes its tax or excludes it. A line's own item discount
- * (% of the line, or an amount) comes off first; the order discount is then worked out on what is
- * left and shared over the tax groups in proportion to their value. Then, per group (same rate, same included/added):
+ * services); the listed price either includes its tax or excludes it. A promotion on the line (an
+ * amount worked out by the promotion engine) comes off first, then the line's own item discount
+ * (% of what is left, or an amount). At order level, in this order: the order promotion (coupon or
+ * automatic, an amount), the cashier's order discount (worked out on what is left), then loyalty
+ * points (an amount). Together they are shared over the tax groups in proportion to their value.
+ * Then, per group (same rate, same included/added):
  * an included tax is taken out of the discounted amount (tax = amount x r / (1 + r)), an added tax
  * goes on top of it (tax = amount x r). Rounding is half-up to cents.
  * <p>Each group's discount and tax are then shared over its lines by value, the last line taking
@@ -24,19 +28,21 @@ import com.pos.common.Money;
  */
 public final class PricingCalculator {
 
-    /** The tax a line is charged under. Lines with equal keys are taxed together. */
-    public record TaxKey(Long rateId, String name, BigDecimal rate, boolean included) {
-    }
-
     /**
      * @param hours         hours worked for an hourly service, otherwise null
-     * @param discountType  an item discount on this line (% of the line, or an amount), or null
+     * @param discountType  an item discount on this line (% of the line after its promotion, or an amount), or null
+     * @param promoDiscount what a promotion takes off the line, in money (null or zero for none); at most the line
      */
     public record Line(BigDecimal unitPrice, int quantity, BigDecimal hours, TaxKey tax, DiscountType discountType,
-                       BigDecimal discountValue) {
+                       BigDecimal discountValue, BigDecimal promoDiscount) {
+
+        public Line(BigDecimal unitPrice, int quantity, BigDecimal hours, TaxKey tax, DiscountType discountType,
+                    BigDecimal discountValue) {
+            this(unitPrice, quantity, hours, tax, discountType, discountValue, null);
+        }
 
         public Line(BigDecimal unitPrice, int quantity, BigDecimal hours, TaxKey tax) {
-            this(unitPrice, quantity, hours, tax, null, null);
+            this(unitPrice, quantity, hours, tax, null, null, null);
         }
 
         BigDecimal total() {
@@ -47,14 +53,22 @@ public final class PricingCalculator {
             return Money.round(unitPrice.multiply(units));
         }
 
-        /** The item discount in money: a % of the line, or an amount (at most the line). */
-        public BigDecimal itemDiscount() {
-            return discount(total(), discountType, discountValue);
+        /** The promotion's discount in money, never more than the line. */
+        public BigDecimal promo() {
+            if (promoDiscount == null || promoDiscount.signum() <= 0) {
+                return Money.round(BigDecimal.ZERO);
+            }
+            return Money.round(promoDiscount.min(total()));
         }
 
-        /** The line after its item discount; the order discount and tax work from this. */
+        /** The item discount in money: a % of the line after its promotion, or an amount (at most what is left). */
+        public BigDecimal itemDiscount() {
+            return discount(total().subtract(promo()), discountType, discountValue);
+        }
+
+        /** The line after its promotion and item discount; the order-level discounts and tax work from this. */
         BigDecimal afterItemDiscount() {
-            return total().subtract(itemDiscount());
+            return total().subtract(promo()).subtract(itemDiscount());
         }
 
         /** The line as priced, before any discount. */
@@ -64,12 +78,12 @@ public final class PricingCalculator {
     }
 
     /**
-     * A line's share of the order: {@code itemDiscount} is its own discount, {@code discount} that
-     * plus its share of the order discount; {@code net} is after both, without tax; {@code paid}
-     * is what the customer pays for it (net + tax).
+     * A line's share of the order: {@code promoDiscount} is its promotion, {@code itemDiscount} its
+     * own discount, {@code discount} both plus its share of the order-level discounts; {@code net} is
+     * after all of them, without tax; {@code paid} is what the customer pays for it (net + tax).
      */
     public record LineSplit(BigDecimal total, BigDecimal itemDiscount, BigDecimal discount, BigDecimal net, BigDecimal tax,
-                            BigDecimal paid) {
+                            BigDecimal paid, BigDecimal promoDiscount) {
     }
 
     /** One tax group: {@code base} is the net amount it is charged on, after discount. */
@@ -77,16 +91,20 @@ public final class PricingCalculator {
     }
 
     /**
-     * @param subtotal     listed prices x quantities (with included taxes inside), before any discount
-     * @param itemDiscount the item discounts on all lines
-     * @param discount     the order discount, worked out on the subtotal after item discounts
-     * @param taxAdded     taxes added on top of exclusive prices
-     * @param taxIncluded  taxes already inside inclusive prices
-     * @param total        subtotal - itemDiscount - discount + taxAdded
-     * @param lines        per input line, in the same order
+     * @param subtotal           listed prices x quantities (with included taxes inside), before any discount
+     * @param itemDiscount       the item discounts on all lines
+     * @param discount           the cashier's order discount, worked out on what is left after the order promotion
+     * @param taxAdded           taxes added on top of exclusive prices
+     * @param taxIncluded        taxes already inside inclusive prices
+     * @param total              subtotal - promoDiscount - itemDiscount - orderPromoDiscount - discount - pointsDiscount + taxAdded
+     * @param lines              per input line, in the same order
+     * @param promoDiscount      the promotions on all lines
+     * @param orderPromoDiscount the order promotion (coupon or automatic)
+     * @param pointsDiscount     loyalty points redeemed, in money
      */
     public record Totals(BigDecimal subtotal, BigDecimal itemDiscount, BigDecimal discount, BigDecimal taxAdded,
-                         BigDecimal taxIncluded, BigDecimal total, List<TaxLine> taxes, List<LineSplit> lines) {
+                         BigDecimal taxIncluded, BigDecimal total, List<TaxLine> taxes, List<LineSplit> lines,
+                         BigDecimal promoDiscount, BigDecimal orderPromoDiscount, BigDecimal pointsDiscount) {
 
         public BigDecimal tax() {
             return taxAdded.add(taxIncluded);
@@ -109,17 +127,32 @@ public final class PricingCalculator {
     }
 
     public static Totals calculate(List<Line> lines, DiscountType discountType, BigDecimal discountValue) {
-        // Item discounts first; the order discount is then shared over what is left, by value.
+        return calculate(lines, discountType, discountValue, null, null);
+    }
+
+    /**
+     * @param orderPromo the order promotion in money (null for none); capped at what is left after line discounts
+     * @param points     loyalty points redeemed, in money (null for none); capped at what is left after everything else
+     */
+    public static Totals calculate(List<Line> lines, DiscountType discountType, BigDecimal discountValue, BigDecimal orderPromo,
+                                   BigDecimal points) {
+        // Line promotions and item discounts first; the order-level discounts are then shared over what is left, by value.
         Map<TaxKey, BigDecimal> gross = new LinkedHashMap<>();
         BigDecimal subtotal = Money.round(BigDecimal.ZERO);
+        BigDecimal promoDiscount = Money.round(BigDecimal.ZERO);
         BigDecimal itemDiscount = Money.round(BigDecimal.ZERO);
         for (Line line : lines) {
             subtotal = subtotal.add(line.total());
+            promoDiscount = promoDiscount.add(line.promo());
             itemDiscount = itemDiscount.add(line.itemDiscount());
             gross.merge(line.tax(), line.afterItemDiscount(), BigDecimal::add);
         }
-        BigDecimal afterItems = subtotal.subtract(itemDiscount);
-        BigDecimal discount = discount(afterItems, discountType, discountValue);
+        BigDecimal afterItems = subtotal.subtract(promoDiscount).subtract(itemDiscount);
+        BigDecimal orderPromoDiscount = capped(orderPromo, afterItems);
+        BigDecimal manual = discount(afterItems.subtract(orderPromoDiscount), discountType, discountValue);
+        BigDecimal pointsDiscount = capped(points, afterItems.subtract(orderPromoDiscount).subtract(manual));
+        // Everything taken off at order level, shared over the tax groups and lines together.
+        BigDecimal discount = orderPromoDiscount.add(manual).add(pointsDiscount);
 
         List<TaxLine> taxes = new ArrayList<>();
         BigDecimal added = Money.round(BigDecimal.ZERO);
@@ -151,7 +184,16 @@ public final class PricingCalculator {
             splitGroup(lines, key, group.getValue(), share, tax, splits);
         }
         BigDecimal total = afterItems.subtract(discount).add(added);
-        return new Totals(subtotal, itemDiscount, discount, added, included, total, taxes, List.of(splits));
+        return new Totals(subtotal, itemDiscount, manual, added, included, total, taxes, List.of(splits), promoDiscount,
+                orderPromoDiscount, pointsDiscount);
+    }
+
+    /** A money amount between zero and {@code most}. */
+    private static BigDecimal capped(BigDecimal amount, BigDecimal most) {
+        if (amount == null || amount.signum() <= 0 || most.signum() <= 0) {
+            return Money.round(BigDecimal.ZERO);
+        }
+        return Money.round(amount.min(most));
     }
 
     /** Shares a group's discount and tax over its lines by value; the group's last line takes the rest. */
@@ -187,7 +229,8 @@ public final class PricingCalculator {
             taxLeft = taxLeft.subtract(tax);
             BigDecimal net = key.included() ? t.subtract(d).subtract(tax) : t.subtract(d);
             BigDecimal item = line.itemDiscount();
-            out[j] = new LineSplit(line.total(), item, item.add(d), net, tax, net.add(tax));
+            BigDecimal promo = line.promo();
+            out[j] = new LineSplit(line.total(), item, promo.add(item).add(d), net, tax, net.add(tax), promo);
         }
     }
 

@@ -39,7 +39,7 @@ export function ReturnsTab() {
   const tz = store.data?.timezone;
   const pageTotal = returns.data?.items.reduce((n, r) => n + r.total, 0) ?? 0;
   const pageTax = returns.data?.items.reduce((n, r) => n + r.tax, 0) ?? 0;
-  const currency = store.data?.currency ?? "USD";
+  const currency = store.data?.currency;
 
   return (
     <div>

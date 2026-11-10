@@ -1,9 +1,9 @@
 package com.pos.auth;
 
 import com.pos.access.Role;
+import com.pos.branch.Branch;
 import java.time.Instant;
-
-import com.pos.inventory.Branch;
+import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -39,6 +39,20 @@ public class User {
 
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
+
+    /** Their name in Khmer script and in Latin letters (as on their ID card); optional. */
+    @Column(name = "name_km", length = 100)
+    private String nameKm;
+
+    @Column(name = "name_latin", length = 100)
+    private String nameLatin;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Gender gender;
+
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
 
     @Column(length = 100)
     private String email;
@@ -78,6 +92,17 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "branch_id")
     private Branch branch;
+
+    /** Whether they added a photo (UserPhoto); the version changes with every new one. */
+    @Column(name = "has_photo", nullable = false)
+    private boolean hasPhoto;
+
+    @Column(name = "photo_version", nullable = false)
+    private int photoVersion;
+
+    /** A built-in avatar they picked instead of a photo (ProfilePhotoService.AVATARS), or null. */
+    @Column(length = 20)
+    private String avatar;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();

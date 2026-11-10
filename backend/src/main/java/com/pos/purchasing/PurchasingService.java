@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.pos.access.Permission;
+import com.pos.accounting.Ledger;
 import com.pos.audit.AuditAction;
 import com.pos.audit.AuditService;
 import com.pos.audit.Changes;
@@ -30,6 +31,7 @@ import com.pos.catalog.UnitConversion;
 import com.pos.common.ApiException;
 import com.pos.inventory.BranchContext;
 import com.pos.inventory.MovementType;
+import com.pos.inventory.StockBookkeeping;
 import com.pos.inventory.StockService;
 import com.pos.inventory.Storage;
 import com.pos.inventory.StorageRepository;
@@ -49,6 +51,8 @@ import com.pos.purchasing.PurchasingDtos.ReceiveRequest;
 import com.pos.purchasing.PurchasingDtos.VendorDto;
 import com.pos.purchasing.PurchasingDtos.VendorRequest;
 import com.pos.settings.SettingsService;
+import com.pos.vendor.Vendor;
+import com.pos.vendor.VendorRepository;
 
 /**
  * Vendors, purchase orders, deliveries, vendor invoices and payments.
@@ -73,10 +77,16 @@ public class PurchasingService {
     private final BranchContext branches;
     private final AuditService audit;
     private final SettingsService settings;
+    private final PurchasePostings postings;
+    private final StockBookkeeping stockBooks;
+    private final Ledger ledger;
 
     public PurchasingService(VendorRepository vendors, PurchaseOrderRepository orders, VendorInvoiceRepository invoices,
                              OfferingRepository offerings, StorageRepository storages, UserRepository users, StockService stock,
-                             BranchContext branches, AuditService audit, SettingsService settings) {
+                             BranchContext branches, AuditService audit, SettingsService settings, PurchasePostings postings, StockBookkeeping stockBooks, Ledger ledger) {
+        this.postings = postings;
+        this.stockBooks = stockBooks;
+        this.ledger = ledger;
         this.vendors = vendors;
         this.orders = orders;
         this.invoices = invoices;
@@ -377,6 +387,8 @@ public class PurchasingService {
                 + po.getVendor().getName() + " (" + po.getPoNumber() + ")");
         receipt.getLines().stream().sorted((a, b) -> Long.compare(a.getLine().getOffering().getId(), b.getLine().getOffering().getId()))
                 .forEach(rl -> stock.add(storage.getId(), rl.getLine().getOffering().getId(), rl.getBaseQuantity(), MovementType.PURCHASE, ref));
+        // In the books at the cost before any update below; the update then revalues what is on hand.
+        postings.goodsReceipt(po, receipt, user.id());
 
         StringBuilder costs = new StringBuilder();
         if (req.updateCost()) {
@@ -385,7 +397,9 @@ public class PurchasingService {
                 BigDecimal perBase = rl.getUnitCost().divide(BigDecimal.valueOf(rl.getLine().getFactor()), 2, RoundingMode.HALF_UP);
                 if (o.getCost() == null || o.getCost().compareTo(perBase) != 0) {
                     costs.append("; cost of ").append(o.getName()).append(' ').append(o.getCost()).append(" → ").append(perBase);
+                    BigDecimal was = o.getCost();
                     o.setCost(perBase);
+                    stockBooks.costChanged(o, was, perBase, user.id());
                 }
             }
         }
@@ -471,10 +485,14 @@ public class PurchasingService {
         i.setTotal(i.getSubtotal().add(i.getTax()));
         i.setNote(blank(req.note()));
         i.setCreatedBy(users.getReferenceById(user.id()));
+        if (po == null && req.expenseAccountId() != null) {
+            i.setExpenseAccount(ledger.expenseAccount(req.expenseAccountId()));
+        }
         if (i.getTotal().signum() == 0) {
             i.setStatus(InvoiceStatus.PAID);
         }
         invoices.saveAndFlush(i);
+        postings.vendorInvoice(i, false, user.id());
         audit.log(AuditAction.VENDOR_INVOICE_RECORDED, "VendorInvoice", i.getId(), "Recorded " + vendor.getName() + " invoice "
                 + number + (po == null ? "" : " for " + po.getPoNumber()) + ": " + i.getTotal() + " (tax " + i.getTax() + "), due " + due);
         return toDto(i);
@@ -494,6 +512,7 @@ public class PurchasingService {
             return toDto(i);
         }
         i.setStatus(InvoiceStatus.VOID);
+        postings.vendorInvoice(i, true, user.id());
         audit.log(AuditAction.VENDOR_INVOICE_VOIDED, "VendorInvoice", i.getId(), "Voided " + i.getVendor().getName()
                 + " invoice " + i.getInvoiceNumber() + " (" + i.getTotal() + ")");
         return toDto(i);
@@ -519,6 +538,9 @@ public class PurchasingService {
         p.setInvoice(i);
         p.setAmount(amount);
         p.setMethod(req.method());
+        Long branchId = i.getPurchaseOrder() != null ? i.getPurchaseOrder().getBranch().getId() : user.branchId();
+        p.setMoneyAccount(postings.vendorPaymentAccount(req.method(),
+                req.moneyAccountId() == null ? null : ledger.moneyAccount(req.moneyAccountId()), branchId));
         p.setPaidOn(req.paidOn());
         p.setReference(blank(req.reference()));
         p.setNote(blank(req.note()));
@@ -527,6 +549,7 @@ public class PurchasingService {
         i.setPaid(i.getPaid().add(amount));
         i.setStatus(i.getPaid().compareTo(i.getTotal()) >= 0 ? InvoiceStatus.PAID : InvoiceStatus.PARTIALLY_PAID);
         invoices.flush();
+        postings.vendorPayment(p, branchId, user.id());
         audit.log(AuditAction.VENDOR_PAYMENT_RECORDED, "VendorInvoice", i.getId(), "Paid " + amount + " to " + i.getVendor().getName()
                 + " on invoice " + i.getInvoiceNumber() + " by " + req.method().name().toLowerCase().replace('_', ' ')
                 + (p.getReference() == null ? "" : " (" + p.getReference() + ")") + "; " + i.balance() + " left");
@@ -540,7 +563,10 @@ public class PurchasingService {
                 i.getTax(), i.getTotal(), i.getPaid(), i.balance(), i.getStatus(), i.overdue(today()), i.getNote(),
                 i.getCreatedBy().getFullName(), i.getCreatedAt(),
                 i.getPayments().stream().map(p -> new PaymentDto(p.getId(), p.getAmount(), p.getMethod(), p.getPaidOn(), p.getReference(),
-                        p.getNote(), p.getCreatedBy().getFullName(), p.getCreatedAt())).toList());
+                        p.getNote(), p.getCreatedBy().getFullName(), p.getCreatedAt(),
+                        p.getMoneyAccount() == null ? null : p.getMoneyAccount().label())).toList(),
+                i.getExpenseAccount() == null ? null : i.getExpenseAccount().getId(),
+                i.getExpenseAccount() == null ? null : i.getExpenseAccount().label());
     }
 
     // ------------------------------------------------------------------------------------ helpers

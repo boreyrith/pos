@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+import com.pos.common.OfferingType;
 import com.pos.tax.TaxMode;
-import com.pos.catalog.OfferingType;
 import com.pos.payment.PaymentDto;
 import com.pos.payment.PaymentMethod;
 
@@ -63,7 +63,11 @@ public final class SalesDtos {
             /** The held sale this cart was resumed from; completed (or locked until KHQR is paid) with the order. */
             Long heldSaleId,
             /** The total the cashier was shown; the sale is refused (409 PRICES_CHANGED) if it no longer matches. */
-            @DecimalMin("0") BigDecimal expectedTotal) {
+            @DecimalMin("0") BigDecimal expectedTotal,
+            /** A coupon code the customer gave; refused (400) if it can't be used. */
+            @Size(max = 40) String couponCode,
+            /** Loyalty points the customer uses on this sale (customers on file only). */
+            @Min(0) Integer redeemPoints) {
     }
 
     public record TenderRequest(@NotNull String currency,
@@ -125,11 +129,13 @@ public final class SalesDtos {
     }
 
     /** A return: {@code total} refunded, {@code tax} the tax inside it. */
+    /** A return: {@code total} refunded, {@code tax} the tax inside it; loyalty points taken back and given back with it. */
     public record ReturnDto(Long id, String returnNumber, String reason, BigDecimal total, BigDecimal tax, BigDecimal net,
-                            String createdBy, Instant createdAt, List<ReturnLineDto> lines) {
+                            String createdBy, Instant createdAt, List<ReturnLineDto> lines, int pointsReversed, int pointsRestored) {
         static ReturnDto from(OrderReturn r) {
             return new ReturnDto(r.getId(), r.getReturnNumber(), r.getReason(), r.getTotal(), r.getTax(), r.getNet(),
-                    r.getCreatedBy().getFullName(), r.getCreatedAt(), r.getLines().stream().map(ReturnLineDto::from).toList());
+                    r.getCreatedBy().getFullName(), r.getCreatedAt(), r.getLines().stream().map(ReturnLineDto::from).toList(),
+                    r.getPointsReversed(), r.getPointsRestored());
         }
     }
 
@@ -144,7 +150,8 @@ public final class SalesDtos {
                                DiscountType itemDiscountType, BigDecimal itemDiscountValue, BigDecimal itemDiscount,
                                BigDecimal lineDiscount, BigDecimal lineNet, BigDecimal lineTax, BigDecimal linePaid,
                                int refundedQty, BigDecimal refundedAmount, BigDecimal refundedTax, String staffName,
-                               List<PartUsedDto> partsUsed, List<ContentDto> contents) {
+                               List<PartUsedDto> partsUsed, List<ContentDto> contents, BigDecimal promoDiscount,
+                               String promotionName) {
         static OrderItemDto from(OrderItem i) {
             return new OrderItemDto(i.getId(), i.getOffering().getId(), i.getOfferingType(), i.getName(), i.getNameKm(), i.getSku(),
                     i.getUnit(), i.getUnitPrice(), i.getListPrice(), i.isPriceOverridden(), i.getPriceOverrideReason(),
@@ -154,7 +161,7 @@ public final class SalesDtos {
                     i.getLineDiscount(), i.getLineNet(), i.getLineTax(), i.getLinePaid(), i.getRefundedQty(),
                     i.getRefundedAmount(), i.getRefundedTax(), i.getStaffName(),
                     i.getComponents().stream().map(PartUsedDto::from).toList(),
-                    i.getContents().stream().map(ContentDto::from).toList());
+                    i.getContents().stream().map(ContentDto::from).toList(), i.getPromoDiscount(), i.getPromotionName());
         }
     }
 
@@ -176,7 +183,10 @@ public final class SalesDtos {
                            boolean walkIn, String customerName, String customerPhone, String customerTaxId, String cashierName,
                            Long branchId, String branchName, String storageName,
                            Instant createdAt, Instant completedAt, List<OrderItemDto> items,
-                           List<PaymentDto> payments, List<RateDto> rates, List<TaxDto> taxes, List<ReturnDto> returns) {
+                           List<PaymentDto> payments, List<RateDto> rates, List<TaxDto> taxes, List<ReturnDto> returns,
+                           BigDecimal promoDiscount, BigDecimal orderPromoDiscount, String couponCode,
+                           List<OrderPromotionDto> promotions, int pointsRedeemed, BigDecimal pointsDiscount, int pointsEarned,
+                           Integer customerPoints, com.pos.customer.Tier customerTier) {
         public static OrderDto from(Order o) {
             return new OrderDto(o.getId(), o.getOrderNumber(), o.getStatus(), o.getSubtotal(), o.getDiscountType(),
                     o.getDiscountValue(), o.getDiscountAmount(), o.getItemDiscount(), o.getTaxAmount(), o.getTaxIncluded(), o.getTaxMode(), o.getTaxLabel(),
@@ -190,7 +200,15 @@ public final class SalesDtos {
                     o.getRates().stream().map(r -> new RateDto(r.getCurrency(), r.getRate())).toList(),
                     o.getTaxes().stream().map(t -> new TaxDto(t.getName(), t.getRate(), t.isIncluded(), t.getBase(),
                             t.getTax())).toList(),
-                    o.getReturns().stream().map(ReturnDto::from).toList());
+                    o.getReturns().stream().map(ReturnDto::from).toList(), o.getPromoDiscount(), o.getOrderPromoDiscount(),
+                    o.getCouponCode(), o.getPromotions().stream().map(p -> new OrderPromotionDto(p.getPromotionId(), p.getName(),
+                            p.getCode(), p.getKind(), p.getAmount())).toList(), o.getPointsRedeemed(), o.getPointsDiscount(),
+                    o.getPointsEarned(), o.getCustomer().isDefaultCustomer() ? null : o.getCustomer().getPointsBalance(),
+                    o.getCustomer().getTier());
         }
+    }
+
+    /** What one promotion took off the sale, as it was then. */
+    public record OrderPromotionDto(Long promotionId, String name, String code, String kind, BigDecimal amount) {
     }
 }

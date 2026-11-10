@@ -1,6 +1,8 @@
 package com.pos.sales;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -26,6 +28,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
                    or o.customer.phone like concat('%', :q, '%') or o.customer.code like concat('%', :q, '%'))
             """)
     Page<Order> search(Long branchId, OrderStatus status, Instant from, Instant to, String q, Long customerId, Pageable pageable);
+
+    /** A page of orders found by {@link OrderSearch}, with what the list shows. */
+    @EntityGraph(attributePaths = {"cashier", "branch", "customer"})
+    List<Order> findByIdIn(Collection<Long> ids);
 
     @EntityGraph(attributePaths = {"cashier", "items", "branch", "storage", "customer"})
     Optional<Order> findWithItemsById(Long id);
