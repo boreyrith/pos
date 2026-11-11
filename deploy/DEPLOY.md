@@ -215,12 +215,26 @@ On a new server: clone the repo, put your saved `.env` in `deploy/`, `docker com
 
 ## Updating
 
+Build first, switch over later. Building downloads whatever changed since the last update (on a
+slow connection that can take an hour); the shop keeps running the old version meanwhile. Only the
+switch-over stops sales, for about a minute.
+
 ```bash
 cd pos/deploy
-./backup-now.sh
+./check-server.sh                                   # Docker, memory, disk, code, download speeds
 git pull
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml build     # any time: the old version keeps serving
+# at closing time:
+./backup-now.sh
+docker compose -f docker-compose.prod.yml up -d     # restarts on the new version, applies database changes
 ```
+
+`check-server.sh` changes nothing. `[FAIL]` needs fixing first (no Docker, too little disk, GitHub
+unreachable); `[SLOW]` only means the build will take a while; `[NOTE]` is worth a look (e.g. files edited on the server, which `git pull` may refuse to overwrite). If downloads are fast on the server
+but slow or failing **in Docker**, Docker's own networking is the cause, most often IPv6 or DNS: in
+`/etc/docker/daemon.json` set `{"dns": ["1.1.1.1", "8.8.8.8"]}` (or turn IPv6 off for Docker), then
+`sudo systemctl restart docker`, which briefly restarts the running app, so do it at closing time.
+A build can also be stopped with Ctrl+C at any point before `up -d`: nothing is replaced until then.
 
 With sample data loaded, updating keeps it (the data is only replaced when you run `load-sample-data.sh` again, e.g. to refresh the dates).
 
@@ -320,5 +334,6 @@ text, easier to read with `docker compose logs`. Container logs are capped at 5 
 - [ ] Company details, VAT, currencies and receipt look right on a test sale (then refund it).
 - [ ] Receipt printer and barcode scanner work at each till.
 - [ ] `deploy/.env` saved somewhere safe.
+- [ ] `./check-server.sh` shows no `[FAIL]`.
 - [ ] A backup file exists in `deploy/backups/` and is copied off the server (`backup-offsite`).
 - [ ] KHQR in live mode, if you take KHQR payments, with one real test payment done.
