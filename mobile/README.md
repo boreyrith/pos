@@ -35,10 +35,16 @@ No backend changes are needed.
   - If the app is closed while a payment is waiting, it shows the QR again on return
     instead of charging twice.
 - **Receipts:** shown after each sale and on every paid order, with the same details as the
-  web receipt. Print goes through the phone's print dialog (AirPrint on iOS, the print
-  service on Android); Share sends an 80mm PDF to Telegram, email and so on. The receipt goes
-  into the PDF as a picture, because PDF text can't shape Khmer. Printing is off for cancelled
-  and unpaid orders.
+  web receipt, laid out for the store's receipt paper (80mm or 58mm, Settings > Company).
+  Print goes through the phone's print dialog (AirPrint on iOS, the print service on
+  Android); Share sends a PDF as wide as the paper to Telegram, email and so on. The receipt
+  goes into the PDF as a picture, because PDF text can't shape Khmer. Printing is off for
+  cancelled and unpaid orders.
+- **Rongta receipt printer (Wi-Fi/LAN):** More > Receipt printer, per device. Enter the printer's
+  IP address (port 9100), use Test print, and optionally print each receipt as soon as the sale
+  is paid. Print receipt then goes straight to the printer: the receipt is drawn at the printer's
+  resolution (576 dots across on 80mm paper, 384 on 58mm) and sent as ESC/POS raster, then cut.
+  Other ESC/POS network printers work the same way. When it is off, the print dialog is used.
 - **Orders:** a day's orders, with search and details.
 - **Held sales:**
   - Hold a sale with a label, then resume, take over, put back, or void it.

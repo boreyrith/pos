@@ -316,9 +316,18 @@ final cartTotalsProvider = Provider<PricingTotals?>((ref) {
   if (store == null) return null;
   // Until a new preview arrives, lines keep what their promotion last took off, while the lines
   // are still the same entries in the same order.
+  // `promo` is checked directly rather than through a `usable` flag: release (AOT) builds on iOS
+  // (Flutter 3.47.1) read `promo.preview` from a null `promo` that way and crashed after sign-in.
   final promo = ref.watch(promotionsProvider).value;
   final ids = [for (final l in cart.lines) l.offering.id];
-  final usable = promo != null && promo.offeringIds.length == ids.length && Iterable.generate(ids.length).every((i) => promo.offeringIds[i] == ids[i]);
+  PromotionPreview? preview;
+  if (promo != null && promo.offeringIds.length == ids.length) {
+    var same = true;
+    for (var i = 0; i < ids.length; i++) {
+      if (promo.offeringIds[i] != ids[i]) same = false;
+    }
+    if (same) preview = promo.preview;
+  }
   return calculateTotals([
     for (final (i, l) in cart.lines.indexed)
       PricingLine(
@@ -337,8 +346,8 @@ final cartTotalsProvider = Provider<PricingTotals?>((ref) {
         ),
         discountType: l.hasDiscount ? l.discountType : null,
         discountValue: l.hasDiscount ? l.discountValue : null,
-        promoDiscount: usable ? promo.preview.lines[i].amount : 0,
+        promoDiscount: preview == null ? 0 : preview.lines[i].amount,
       ),
   ], cart.discountValue > 0 ? cart.discountType : null, cart.discountValue,
-      orderPromo: usable ? promo.preview.orderDiscount : 0);
+      orderPromo: preview == null ? 0 : preview.orderDiscount);
 });

@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/i18n.dart';
 import '../state/data.dart';
+import '../state/printer.dart';
 import '../state/session.dart';
 import 'change_password_screen.dart';
+import 'printer_screen.dart';
 
-/// The signed-in user, language, server and signing out.
+/// The signed-in user, language, receipt printer, server and signing out.
 class MoreScreen extends ConsumerWidget {
   const MoreScreen({super.key});
 
@@ -16,6 +18,7 @@ class MoreScreen extends ConsumerWidget {
     final lang = ref.watch(langProvider);
     final store = ref.watch(storeProvider).value;
     final server = ref.watch(serverUrlProvider);
+    final printer = ref.watch(printerProvider);
     return Scaffold(
       appBar: AppBar(title: Text(t('More'))),
       body: ListView(children: [
@@ -39,6 +42,12 @@ class MoreScreen extends ConsumerWidget {
           leading: const Icon(Icons.lock_outline),
           title: Text(t('Change password')),
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
+        ),
+        ListTile(
+          leading: const Icon(Icons.print_outlined),
+          title: Text(t('Receipt printer')),
+          subtitle: Text(printer.ready ? 'Rongta · ${printer.host}:${printer.port}' : t("Device's print dialog")),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrinterScreen())),
         ),
         ListTile(
           leading: const Icon(Icons.refresh),

@@ -1,5 +1,9 @@
-# Development: `docker compose up -d mysql`, then run the backend and frontend locally.
-# Everything in containers: `docker compose --profile app up -d --build`.
+# Development only (never on a production server): `docker compose up -d mysql`, then run the
+# backend and frontend locally. Everything in containers: `docker compose --profile app up -d --build`.
+# Its own project name, so it can never act on the production stack (deploy/, project "pos"), even
+# when the repository folder is called "pos". "pos-next" keeps existing development databases.
+name: pos-next
+
 services:
   mysql:
     image: mysql:8.4

@@ -2,6 +2,7 @@ package com.pos.settings;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Set;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -35,6 +36,9 @@ public class CompanySettings {
 
     public static final short ID = 1;
 
+    /** The receipt paper widths the apps can lay a receipt out for, in mm. */
+    public static final Set<Integer> RECEIPT_WIDTHS = Set.of(58, 80);
+
     @Id
     @JdbcTypeCode(SqlTypes.TINYINT)
     private Short id = ID;
@@ -63,6 +67,10 @@ public class CompanySettings {
 
     @Column(name = "receipt_footer", length = 500)
     private String receiptFooter;
+
+    /** The receipt paper's width in mm: {@link #RECEIPT_WIDTHS}. */
+    @Column(name = "receipt_width", nullable = false)
+    private int receiptWidth = 80;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "tax_mode", nullable = false, length = 12)

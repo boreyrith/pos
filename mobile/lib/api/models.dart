@@ -74,6 +74,7 @@ class StoreSettings {
     this.phone,
     this.taxId,
     this.receiptFooter,
+    this.receiptWidth = 80,
     required this.currency,
     required this.taxMode,
     required this.taxLabel,
@@ -91,6 +92,9 @@ class StoreSettings {
   final String? phone;
   final String? taxId;
   final String? receiptFooter;
+
+  /// The receipt paper's width in mm, 80 or 58 (Settings > Company on the web).
+  final int receiptWidth;
 
   /// The base currency: prices, totals and reports are in it.
   final String currency;
@@ -112,6 +116,7 @@ class StoreSettings {
         phone: j['phone'] as String?,
         taxId: j['taxId'] as String?,
         receiptFooter: j['receiptFooter'] as String?,
+        receiptWidth: j['receiptWidth'] as int? ?? 80,
         currency: j['currency'] as String,
         taxMode: j['taxMode'] as String,
         taxLabel: j['taxLabel'] as String,

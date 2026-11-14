@@ -43,7 +43,7 @@ import jakarta.validation.constraints.Size;
 public class SettingsController {
 
     public record CompanyDto(String name, String legalName, String taxId, String address, String phone, String email,
-                             String website, String receiptFooter, String timezone, boolean hasLogo,
+                             String website, String receiptFooter, int receiptWidth, String timezone, boolean hasLogo,
                              int logoVersion, String updatedBy, Instant updatedAt) {
     }
 
@@ -57,6 +57,7 @@ public class SettingsController {
             @Email @Size(max = 100) String email,
             @Size(max = 150) String website,
             @Size(max = 500) String receiptFooter,
+            @NotNull Integer receiptWidth,
             @NotBlank @Size(max = 50) String timezone) {
     }
 
@@ -92,6 +93,9 @@ public class SettingsController {
         } catch (DateTimeException e) {
             throw ApiException.badRequest("Unknown time zone " + req.timezone() + ". Use a name like Asia/Phnom_Penh.");
         }
+        if (!CompanySettings.RECEIPT_WIDTHS.contains(req.receiptWidth())) {
+            throw ApiException.badRequest("Receipt paper must be 58mm or 80mm.");
+        }
         settings.current();
         CompanySettings s = load();
         Changes changes = new Changes()
@@ -103,6 +107,7 @@ public class SettingsController {
                 .add("Email", s.getEmail(), blankToNull(req.email()))
                 .add("Website", s.getWebsite(), blankToNull(req.website()))
                 .add("Receipt footer", s.getReceiptFooter(), blankToNull(req.receiptFooter()))
+                .add("Receipt paper", s.getReceiptWidth() + "mm", req.receiptWidth() + "mm")
                 .add("Time zone", s.getTimezone(), req.timezone().trim());
         s.setName(req.name().trim());
         s.setLegalName(blankToNull(req.legalName()));
@@ -112,6 +117,7 @@ public class SettingsController {
         s.setEmail(blankToNull(req.email()));
         s.setWebsite(blankToNull(req.website()));
         s.setReceiptFooter(blankToNull(req.receiptFooter()));
+        s.setReceiptWidth(req.receiptWidth());
         s.setTimezone(req.timezone().trim());
         touch(s, user);
         settings.refresh(repository.saveAndFlush(s));
@@ -193,7 +199,7 @@ public class SettingsController {
 
     private static CompanyDto toDto(CompanySettings s) {
         return new CompanyDto(s.getName(), s.getLegalName(), s.getTaxId(), s.getAddress(), s.getPhone(), s.getEmail(),
-                s.getWebsite(), s.getReceiptFooter(), s.getTimezone(), s.getLogoType() != null, s.getLogoVersion(),
+                s.getWebsite(), s.getReceiptFooter(), s.getReceiptWidth(), s.getTimezone(), s.getLogoType() != null, s.getLogoVersion(),
                 s.getUpdatedBy() == null ? null : s.getUpdatedBy().getFullName(), s.getUpdatedAt());
     }
 

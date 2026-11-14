@@ -526,6 +526,9 @@ export interface KhqrSettings {
   updatedAt: string;
 }
 
+/** Thermal receipt paper widths, in mm (Settings > Company). */
+export type ReceiptWidth = 58 | 80;
+
 /** Company details and settings every screen needs. */
 export interface StoreSettings {
   name: string;
@@ -536,6 +539,8 @@ export interface StoreSettings {
   email: string | null;
   website: string | null;
   receiptFooter: string | null;
+  /** The receipt paper's width in mm; the receipt is laid out and printed for it. */
+  receiptWidth: ReceiptWidth;
   /** The base currency: prices, totals and reports are in it. */
   currency: string;
   /** How prices are taxed; set under Settings > Taxes. */
@@ -561,6 +566,7 @@ export interface CompanySettings {
   email: string | null;
   website: string | null;
   receiptFooter: string | null;
+  receiptWidth: ReceiptWidth;
   timezone: string;
   hasLogo: boolean;
   logoVersion: number;

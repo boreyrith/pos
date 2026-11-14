@@ -229,6 +229,11 @@ docker compose -f docker-compose.prod.yml build     # any time: the old version 
 docker compose -f docker-compose.prod.yml up -d     # restarts on the new version, applies database changes
 ```
 
+**Behind nginx or Apache** (`COMPOSE_FILE` in `.env`): leave out `-f docker-compose.prod.yml`, i.e.
+`docker compose build` and `docker compose up -d`. With `-f`, Docker uses only the main file: the web
+app and API lose their local ports (the site answers 502) and a Caddy container appears that must not
+run there. `check-server.sh` prints the right commands for this server.
+
 `check-server.sh` changes nothing. `[FAIL]` needs fixing first (no Docker, too little disk, GitHub
 unreachable); `[SLOW]` only means the build will take a while; `[NOTE]` is worth a look (e.g. files edited on the server, which `git pull` may refuse to overwrite). If downloads are fast on the server
 but slow or failing **in Docker**, Docker's own networking is the cause, most often IPv6 or DNS: in

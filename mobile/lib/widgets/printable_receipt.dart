@@ -9,10 +9,10 @@ import '../core/pricing.dart';
 import '../state/session.dart';
 import 'common.dart';
 
-/// The width the receipt is drawn at; printed, it fills 80mm paper.
-const receiptWidth = 320.0;
+/// The width the receipt is drawn at for the store's paper (80mm or 58mm); printed, it fills it.
+double receiptWidthFor(StoreSettings? store) => store?.receiptWidth == 58 ? 232.0 : 320.0;
 
-/// A receipt for 80mm paper, always black on white. Mirrors Receipt.tsx on the web. Tax lines follow
+/// A receipt for the store's paper, always black on white. Mirrors Receipt.tsx on the web. Tax lines follow
 /// the order's own tax mode and label (as sold), not the current settings, so reprints never change.
 class PrintableReceipt extends ConsumerWidget {
   const PrintableReceipt({super.key, required this.order, required this.store, required this.currencies});
@@ -40,10 +40,11 @@ class PrintableReceipt extends ConsumerWidget {
     Widget center(String text, {bool bold = false}) =>
         Text(text, textAlign: TextAlign.center, style: bold ? const TextStyle(fontWeight: FontWeight.w700) : null);
 
-    return Container(
-      width: receiptWidth,
+    final narrow = store.receiptWidth == 58;
+    final receipt = Container(
+      width: receiptWidthFor(store),
       color: Colors.white,
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(narrow ? 8 : 14),
       child: DefaultTextStyle(
         style: const TextStyle(color: Colors.black, fontSize: 12, height: 1.35),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
@@ -118,6 +119,10 @@ class PrintableReceipt extends ConsumerWidget {
         ]),
       ),
     );
+    if (!narrow) return receipt;
+    // Text on 58mm paper is a little smaller, so lines still fit.
+    final media = MediaQuery.of(context);
+    return MediaQuery(data: media.copyWith(textScaler: TextScaler.linear(media.textScaler.scale(0.85))), child: receipt);
   }
 
   Widget _item(OrderItem item, String Function(double) m) {

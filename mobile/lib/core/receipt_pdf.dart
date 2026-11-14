@@ -6,28 +6,32 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-/// 3 × the 320 wide receipt is about 300 dpi on 80mm paper.
+/// 3 × the receipt as drawn (320 wide for 80mm paper, 232 for 58mm) is about 300 dpi.
 const _pixelRatio = 3.0;
-final _receiptWidth = 80 * PdfPageFormat.mm;
 
 /// A receipt as a picture. It goes into the PDF as one because PDF text can't shape Khmer;
 /// Flutter's own text drawing can.
 class ReceiptImage {
-  const ReceiptImage(this.png, this.width, this.height);
+  const ReceiptImage(this.png, this.width, this.height, this.paperMm);
 
   final Uint8List png;
   final int width;
   final int height;
 
-  static Future<ReceiptImage> capture(RenderRepaintBoundary receipt) async {
+  /// The receipt paper's width in mm (the store's setting).
+  final int paperMm;
+
+  double get _receiptWidth => paperMm * PdfPageFormat.mm;
+
+  static Future<ReceiptImage> capture(RenderRepaintBoundary receipt, int paperMm) async {
     final image = await receipt.toImage(pixelRatio: _pixelRatio);
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-    final captured = ReceiptImage(bytes!.buffer.asUint8List(), image.width, image.height);
+    final captured = ReceiptImage(bytes!.buffer.asUint8List(), image.width, image.height, paperMm);
     image.dispose();
     return captured;
   }
 
-  /// One page exactly the receipt's size, 80mm wide.
+  /// One page exactly the receipt's size, as wide as its paper.
   Future<Uint8List> receiptSizedPdf() {
     final doc = pw.Document();
     doc.addPage(pw.Page(
@@ -37,7 +41,7 @@ class ReceiptImage {
     return doc.save();
   }
 
-  /// For the printer's paper: a roll gets the receipt as it is; a sheet (A4...) gets it 80mm wide
+  /// For the printer's paper: a roll gets the receipt as it is; a sheet (A4...) gets it at its paper's width
   /// at the top centre, made smaller only if it is too long for the page.
   Future<Uint8List> pdfFor(PdfPageFormat paper) {
     if (paper.width <= _receiptWidth + 10 * PdfPageFormat.mm || paper.height == double.infinity) return receiptSizedPdf();

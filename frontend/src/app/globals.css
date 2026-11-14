@@ -77,7 +77,7 @@ body {
   color: var(--text);
 }
 
-/* Receipts print on 80mm thermal paper: only the receipt is printed. */
+/* Receipts print on 80mm thermal paper (Receipt.tsx overrides it for 58mm): only the receipt is printed. */
 @media print {
   @page {
     size: 80mm auto;

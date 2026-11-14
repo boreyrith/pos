@@ -4,12 +4,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageUp, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { Button, Card, ErrorNote, Field, Input, Spinner } from "@/components/ui";
+import { Button, Card, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { hasPermission, useUser } from "@/lib/auth";
 import { dateTime } from "@/lib/format";
 import { logoUrl } from "@/lib/queries";
-import type { CompanySettings } from "@/lib/types";
+import type { CompanySettings, ReceiptWidth } from "@/lib/types";
 import { msg, useT } from "@/lib/i18n";
 
 /** Company details, receipt text and time zone. Admins edit. Tax and KHQR have their own tabs. */
@@ -38,6 +38,7 @@ function CompanyForm({ company }: { company: CompanySettings }) {
     timezone: company.timezone,
   });
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const [receiptWidth, setReceiptWidth] = useState<ReceiptWidth>(company.receiptWidth);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => {
@@ -45,7 +46,7 @@ function CompanyForm({ company }: { company: CompanySettings }) {
     queryClient.invalidateQueries({ queryKey: ["store"] });
   };
   const save = useMutation({
-    mutationFn: () => api<CompanySettings>("/settings/company", { method: "PUT", json: form }),
+    mutationFn: () => api<CompanySettings>("/settings/company", { method: "PUT", json: { ...form, receiptWidth } }),
     onSuccess: refresh,
   });
   const upload = useMutation({
@@ -149,6 +150,12 @@ function CompanyForm({ company }: { company: CompanySettings }) {
                 <option key={tz} value={tz} />
               ))}
             </datalist>
+          </Field>
+          <Field label={t("Receipt paper")} error={errors.receiptWidth} hint={t("The width of the thermal paper roll in the receipt printer")}>
+            <Select value={receiptWidth} onChange={(e) => setReceiptWidth(Number(e.target.value) as ReceiptWidth)} disabled={!admin}>
+              <option value={80}>80 mm</option>
+              <option value={58}>58 mm</option>
+            </Select>
           </Field>
           <div className="sm:col-span-2">
             <Field label={t("Receipt footer")} error={errors.receiptFooter} hint={t("e.g. thanks, return policy, Wi-Fi password")}>

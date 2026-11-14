@@ -6,15 +6,28 @@ import { logoUrl, useCurrencies } from "@/lib/queries";
 import type { Order, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n";
 import { tierLabel } from "@/components/TierBadge";
+import { cx } from "@/components/ui";
 
 /**
- * A printable 80mm receipt. Wrap in .print-area to print only this. Tax lines follow the order's
- * own tax mode and label (as sold), not the current settings, so reprints never change.
+ * Printing on 58mm paper: overrides the 80mm receipt page in globals.css (5mm margins, 48mm printed,
+ * the usual print width of 58mm printers).
+ * :has() makes it win over the plain .print-area rule.
+ */
+const PAPER_58_CSS = `@media print {
+  @page { size: 58mm auto; margin: 5mm; }
+  .print-area:has(.receipt-58) { width: 48mm; }
+}`;
+
+/**
+ * A printable receipt for the store's paper (Settings > Company: 80mm or 58mm). Wrap in .print-area
+ * to print only this. Tax lines follow the order's own tax mode and label (as sold), not the current
+ * settings, so reprints never change.
  */
 export function Receipt({ order, store }: { order: Order; store: StoreSettings }) {
   const t = useT();
   const vat = order.taxLabel;
   const exclusive = order.taxMode === "EXCLUSIVE";
+  const narrow = store.receiptWidth === 58;
   const paid = order.payments.find((p) => p.status === "PAID" || p.status === "REFUNDED");
   const currencies = useCurrencies().data ?? [];
   const find = (code: string | null) => currencies.find((c) => c.code === code);
@@ -23,13 +36,19 @@ export function Receipt({ order, store }: { order: Order; store: StoreSettings }
     return c ? amountIn(amount, c) : `${amount} ${code ?? ""}`;
   };
   return (
-    <div className="mx-auto w-full max-w-[320px] bg-white p-4 font-mono text-[12px] leading-relaxed text-black">
+    <div
+      className={cx(
+        "mx-auto w-full bg-white font-mono leading-relaxed text-black",
+        narrow ? "receipt-58 max-w-[232px] p-2 text-[10px]" : "max-w-[320px] p-4 text-[12px]",
+      )}
+    >
+      {narrow && <style>{PAPER_58_CSS}</style>}
       <div className="text-center">
         {store.hasLogo && (
-          // eslint-disable-next-line @next/next/no-img-element -- served by our API, sized for 80mm paper
+          // eslint-disable-next-line @next/next/no-img-element -- served by our API, sized for the paper
           <img src={logoUrl(store.logoVersion)} alt="" className="mx-auto mb-1 max-h-16 max-w-[60%] object-contain" />
         )}
-        <div className="text-sm font-bold">{store.name}</div>
+        <div className="text-[1.17em] font-bold">{store.name}</div>
         {store.legalName && <div>{store.legalName}</div>}
         {store.address && <div>{store.address}</div>}
         {store.phone && <div>{t("Tel")} {store.phone}</div>}
@@ -55,13 +74,13 @@ export function Receipt({ order, store }: { order: Order; store: StoreSettings }
         <div key={i} className="mb-1">
           <div>{item.name}</div>
           {item.nameKm && <div lang="km">{item.nameKm}</div>}
-          <div className="flex justify-between">
-            <span>
+          <div className="flex justify-between gap-2">
+            <span className="min-w-0">
               {item.quantity} × {money(item.unitPrice, order.currency)}
               {item.hours != null ? ` × ${hours(item.hours)}` : item.unit ? ` /${item.unit}` : ""}
               {item.taxRate === 0 && order.taxMode !== "NONE" ? ` (${item.taxName})` : ""}
             </span>
-            <span>{money(item.lineTotal, order.currency)}</span>
+            <span className="shrink-0">{money(item.lineTotal, order.currency)}</span>
           </div>
           {item.contents.map((c, j) => (
             <div key={j} style={{ paddingLeft: `${(c.depth + 1) * 8}px` }}>
@@ -77,8 +96,8 @@ export function Receipt({ order, store }: { order: Order; store: StoreSettings }
             </div>
           )}
           {item.itemDiscount > 0 && (
-            <div className="flex justify-between">
-              <span>  {t("Discount")}{item.itemDiscountType === "PERCENT" ? ` ${item.itemDiscountValue}%` : ""}</span>
+            <div className="flex justify-between gap-2">
+              <span className="min-w-0">  {t("Discount")}{item.itemDiscountType === "PERCENT" ? ` ${item.itemDiscountValue}%` : ""}</span>
               <span>-{money(item.itemDiscount, order.currency)}</span>
             </div>
           )}
@@ -109,7 +128,7 @@ export function Receipt({ order, store }: { order: Order; store: StoreSettings }
         .map((x) => (
           <Row key={`${x.name}-added`} label={taxLabel(x)} value={money(x.tax, order.currency)} />
         ))}
-      <div className="mt-1 flex justify-between text-sm font-bold">
+      <div className="mt-1 flex justify-between gap-2 text-[1.17em] font-bold">
         <span>{t("TOTAL")}</span>
         <span>{money(order.total, order.currency)}</span>
       </div>
@@ -131,11 +150,11 @@ export function Receipt({ order, store }: { order: Order; store: StoreSettings }
       )}
       {order.taxMode !== "NONE" && order.taxes.some((x) => x.rate > 0) && (
         <>
-          <div className="mt-2 text-[11px] font-bold">{t("Tax summary")}</div>
+          <div className="mt-2 text-[0.92em] font-bold">{t("Tax summary")}</div>
           {order.taxes
             .filter((x) => x.rate > 0)
             .map((x) => (
-              <div key={`${x.name}-${x.included}`} className="flex justify-between text-[11px]">
+              <div key={`${x.name}-${x.included}`} className="flex justify-between gap-2 text-[0.92em]">
                 <span>
                   {x.included
                     ? t("{tax} incl. on {base}", { tax: taxLabel(x), base: money(x.base, order.currency) })
@@ -175,9 +194,9 @@ export function Receipt({ order, store }: { order: Order; store: StoreSettings }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between">
-      <span>{label}</span>
-      <span>{value}</span>
+    <div className="flex justify-between gap-2">
+      <span className="min-w-0">{label}</span>
+      <span className="shrink-0">{value}</span>
     </div>
   );
 }
