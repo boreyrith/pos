@@ -2,8 +2,10 @@
 #   pos.example.com              -> a real certificate from Let's Encrypt (set TLS to your email)
 #   10.0.129.216 / shop-pc.local -> a certificate from Caddy's own authority (TLS=internal);
 #                                   install that authority on each till once (see DEPLOY.md).
-# The web app reaches the API through its own /api, so it works without API_ADDRESS; the API address
-# is for other programs (integrations, a mobile app). Its paths start with /api, like the web app's.
+# On SITE_ADDRESS, /api goes to the backend, /ctl to administration (frontend-ctl), /cas to the till
+# (frontend-cas), /buy to the online shop (frontend-buy), /app to the mobile app page (frontend-app) and
+# everything else to the portal (frontend-nav, which also sends old addresses on). The API address
+# is for other programs (integrations, the mobile app). Its paths start with /api too.
 
 (common) {
 	tls {$TLS}
@@ -27,8 +29,50 @@
 	import common
 	# The client's address as Caddy sees it, overwriting any X-Real-IP the client sent: the API's
 	# per-address sign-in limit and the list of signed-in devices rely on it.
-	reverse_proxy frontend:3000 {
-		header_up X-Real-IP {remote_host}
+	# The mobile app's APK (up to 100 MB) is the one upload bigger than the 5 MB above.
+	@apk path /api/settings/mobile-app/apk
+	handle @apk {
+		request_body {
+			max_size 101MB
+		}
+		reverse_proxy backend:8081 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	@api path /api/*
+	handle @api {
+		reverse_proxy backend:8081 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	@cas path /cas /cas/*
+	handle @cas {
+		reverse_proxy frontend-cas:3000 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	@ctl path /ctl /ctl/*
+	handle @ctl {
+		reverse_proxy frontend-ctl:3000 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	@buy path /buy /buy/*
+	handle @buy {
+		reverse_proxy frontend-buy:3000 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	@app path /app /app/*
+	handle @app {
+		reverse_proxy frontend-app:3000 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	handle {
+		reverse_proxy frontend-nav:3000 {
+			header_up X-Real-IP {remote_host}
+		}
 	}
 }
 

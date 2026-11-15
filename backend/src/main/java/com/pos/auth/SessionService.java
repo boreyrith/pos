@@ -37,13 +37,14 @@ public class SessionService {
     /**
      * A signed-in device. {@code current} marks the session the request came from.
      */
-    public record SessionDto(String id, Long userId, String username, String fullName, String roleName, String device, String browser,
-                             String os, DeviceNames.Kind kind, String ipAddress, Instant createdAt, Instant lastUsedAt,
-                             Instant expiresAt, boolean current) {
+    public record SessionDto(String id, Long userId, String username, String fullName, String roleName, SessionPlatform platform,
+                             String device, String browser, String os, DeviceNames.Kind kind, String ipAddress, Instant createdAt,
+                             Instant lastUsedAt, Instant expiresAt, boolean current) {
         static SessionDto from(UserSession s, String currentId) {
             var d = DeviceNames.describe(s.getUserAgent());
             User u = s.getUser();
-            return new SessionDto(s.getId(), u.getId(), u.getUsername(), u.getFullName(), u.getRole().getName(), d.label(), d.browser(),
+            return new SessionDto(s.getId(), u.getId(), u.getUsername(), u.getFullName(), u.getRole().getName(), s.getPlatform(),
+                    d.label(), d.browser(),
                     d.os(), d.kind(), s.getIpAddress(), s.getCreatedAt(), s.getLastUsedAt(), s.getExpiresAt(), s.getId().equals(currentId));
         }
     }
@@ -135,6 +136,7 @@ public class SessionService {
     }
 
     private static String describe(UserSession s) {
-        return DeviceNames.describe(s.getUserAgent()).label() + (s.getIpAddress() == null ? "" : " (" + s.getIpAddress() + ")");
+        return DeviceNames.describe(s.getUserAgent()).label() + ", " + s.getPlatform().label()
+                + (s.getIpAddress() == null ? "" : " (" + s.getIpAddress() + ")");
     }
 }

@@ -1,14 +1,30 @@
-# For a server that already runs nginx or Apache on ports 80/443: no Caddy; the web app and the API
-# listen on this machine only (127.0.0.1), and your web server proxies the domains to them.
+# For a server that already runs nginx or Apache on ports 80/443: no Caddy; the web apps and the API
+# listen on this machine only (127.0.0.1), and your web server proxies the domains and paths to them.
 # Used together with docker-compose.prod.yml; init-env.sh sets COMPOSE_FILE in .env so plain
 # "docker compose ..." picks up both. Site configs: ./proxy-config.sh nginx|apache. See DEPLOY.md.
 services:
   caddy:
     profiles: ["caddy"] # not started
 
-  frontend:
+  frontend-ctl:
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
+
+  frontend-cas:
+    ports:
+      - "127.0.0.1:${CAS_PORT:-3001}:3000"
+
+  frontend-buy:
+    ports:
+      - "127.0.0.1:${BUY_PORT:-3002}:3000"
+
+  frontend-app:
+    ports:
+      - "127.0.0.1:${APP_PORT:-3003}:3000"
+
+  frontend-nav:
+    ports:
+      - "127.0.0.1:${NAV_PORT:-3004}:3000"
 
   backend:
     ports:

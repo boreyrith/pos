@@ -86,7 +86,7 @@ public final class CatalogDtos {
                               String unit, Long categoryId, String categoryName, BigDecimal price,
                               PricingMode pricing, Integer durationMinutes, BigDecimal cost, Long taxRateId,
                               String taxRateName, BigDecimal taxRate, String effectiveTaxName, BigDecimal effectiveTaxRate, boolean includesTax,
-                              Integer stock, Integer lowStockThreshold, boolean active, boolean sellable,
+                              Integer stock, Integer lowStockThreshold, boolean active, boolean sellable, boolean sellOnline,
                               List<PackDto> packs, List<ComponentDto> components, PackageInfo packageInfo) {
 
         /** @param taxSettings the store's tax mode and scope, which decide the rate actually charged */
@@ -113,7 +113,7 @@ public final class CatalogDtos {
                     o.getPrice(), o.getPricing(), o.getDurationMinutes(), o.getCost(), tax.getId(), tax.getName(),
                     tax.getRate(), key.name(), key.rate(), key.included(),
                     stocked ? stock.getOrDefault(o.getId(), 0) : null, stocked ? o.getLowStockThreshold() : null,
-                    o.isActive(), o.isSellable(), packs, components, pkg);
+                    o.isActive(), o.isSellable(), o.isSellOnline(), packs, components, pkg);
         }
     }
 
@@ -166,7 +166,9 @@ public final class CatalogDtos {
             Boolean sellable,
             @Size(max = 50) List<@Valid ComponentRequest> components,
             /** For packages: what is inside. */
-            @Size(max = 50) List<@Valid PackageLineRequest> contents) {
+            @Size(max = 50) List<@Valid PackageLineRequest> contents,
+            /** Sold in the online shop; null keeps it as it is (off for new entries). */
+            Boolean sellOnline) {
     }
 
     public enum StockOperation {

@@ -63,7 +63,9 @@ class ApiClient {
   String logoUrl(int version) => '$baseUrl/settings/company/logo?v=$version';
 
   Future<TokenResponse> login(String username, String password) async {
-    final res = await _send('POST', '/auth/login', json: {'username': username, 'password': password});
+    // The mobile app's own sessions (the web till and administration have theirs). Refresh and sign-out
+    // name no platform, which the server reads as this one, so older builds behave the same.
+    final res = await _send('POST', '/auth/login', json: {'username': username, 'password': password, 'platform': 'APP'});
     if (res.statusCode != 200) throw _toError(res);
     return _takeSession(res);
   }

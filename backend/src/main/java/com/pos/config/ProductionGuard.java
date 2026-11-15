@@ -10,6 +10,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import com.pos.common.AppProperties;
+import com.pos.settings.SettingsService;
 
 /**
  * Stops a non-development start that would be unsafe: no signing key of its own means anyone with
@@ -22,8 +23,10 @@ public class ProductionGuard {
 
     private final Environment environment;
     private final AppProperties props;
+    private final SettingsService settings;
 
-    public ProductionGuard(Environment environment, AppProperties props) {
+    public ProductionGuard(Environment environment, AppProperties props, SettingsService settings) {
+        this.settings = settings;
         this.environment = environment;
         this.props = props;
     }
@@ -43,6 +46,10 @@ public class ProductionGuard {
         }
         if (!props.jwt().refreshCookieSecure()) {
             log.warn("REFRESH_COOKIE_SECURE is off: set it to true once the site is served over HTTPS.");
+        }
+        if (settings.khqr().simulated()) {
+            log.warn("KHQR is in test mode: payments are simulated, not real. Switch to live in Settings > Taxes & payments "
+                    + "before taking KHQR payments (the online shop stays closed until then).");
         }
     }
 }

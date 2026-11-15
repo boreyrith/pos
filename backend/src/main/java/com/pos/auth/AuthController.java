@@ -12,7 +12,6 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,7 +37,8 @@ import jakarta.validation.Valid;
 
 /**
  * The access token is returned in the body (kept in memory by the client); the refresh token
- * travels only in an HttpOnly cookie scoped to the auth endpoints.
+ * travels only in an HttpOnly cookie scoped to the auth endpoints, one cookie per platform
+ * ({@link SessionPlatform}): refresh and sign-out say which with {@code ?platform=} (none: the mobile app).
  */
 @RestController
 @RequestMapping("/auth")
@@ -49,7 +49,6 @@ public class AuthController {
     private final MyDetailsService myDetails;
     private final UserSessionRepository userSessions;
 
-    static final String REFRESH_COOKIE = "pos_refresh";
 
     private final AuthService authService;
     private final UserRepository users;
@@ -69,25 +68,30 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest req, HttpServletRequest request) {
         return withCookie(authService.login(req.username(), req.password(), req.remember() == null || req.remember(),
-                ClientInfo.from(request)));
+                SessionPlatform.orApp(req.platform()), ClientInfo.from(request)));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<TokenResponse> refresh(@CookieValue(name = REFRESH_COOKIE, required = false) String token,
+    public ResponseEntity<TokenResponse> refresh(@RequestParam(required = false) SessionPlatform platform,
                                                  HttpServletRequest request) {
+        SessionPlatform p = SessionPlatform.orApp(platform);
+        String token = refreshCookie(request, p);
         if (token == null) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Not signed in");
         }
-        return withCookie(authService.refresh(token, ClientInfo.from(request)));
+        return withCookie(authService.refresh(token, p, ClientInfo.from(request)));
     }
 
+    /** Signs out of this platform only; the others stay signed in. */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@CookieValue(name = REFRESH_COOKIE, required = false) String token) {
+    public ResponseEntity<Void> logout(@RequestParam(required = false) SessionPlatform platform, HttpServletRequest request) {
+        SessionPlatform p = SessionPlatform.orApp(platform);
+        String token = refreshCookie(request, p);
         if (token != null) {
             authService.logout(token);
         }
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, cookie("", Duration.ZERO).toString())
+                .header(HttpHeaders.SET_COOKIE, cookie(p, "", Duration.ZERO).toString())
                 .build();
     }
 
@@ -95,10 +99,11 @@ public class AuthController {
     @PostMapping("/password")
     public ResponseEntity<TokenResponse> changePassword(@Valid @RequestBody ChangePasswordRequest req,
                                                         @AuthenticationPrincipal AuthUser principal, HttpServletRequest request) {
-        // A new session after a password change keeps this one's "Remember me".
-        boolean remember = principal.sessionId() == null
-                || userSessions.findById(principal.sessionId()).map(UserSession::isRemember).orElse(true);
-        return withCookie(authService.changePassword(principal.id(), req.currentPassword(), req.newPassword(), remember,
+        // A new session after a password change keeps this one's "Remember me" and platform.
+        var current = principal.sessionId() == null ? java.util.Optional.<UserSession>empty() : userSessions.findById(principal.sessionId());
+        boolean remember = current.map(UserSession::isRemember).orElse(true);
+        SessionPlatform platform = current.map(UserSession::getPlatform).orElse(SessionPlatform.APP);
+        return withCookie(authService.changePassword(principal.id(), req.currentPassword(), req.newPassword(), remember, platform,
                 ClientInfo.from(request)));
     }
 
@@ -177,12 +182,25 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE,
                         // Without "Remember me" the cookie has no lifetime, so it ends when the browser closes.
-                        cookie(session.refreshToken(), session.remember() ? props.jwt().refreshTokenTtl() : null).toString())
+                        cookie(session.platform(), session.refreshToken(), session.remember() ? props.jwt().refreshTokenTtl() : null).toString())
                 .body(session.tokens());
     }
 
-    private ResponseCookie cookie(String value, Duration maxAge) {
-        return ResponseCookie.from(REFRESH_COOKIE, value)
+    /** This platform's refresh token, from its own cookie (another platform's cookie is never used). */
+    private static String refreshCookie(HttpServletRequest request, SessionPlatform platform) {
+        if (request.getCookies() == null) {
+            return null;
+        }
+        for (var c : request.getCookies()) {
+            if (c.getName().equals(platform.cookie()) && !c.getValue().isEmpty()) {
+                return c.getValue();
+            }
+        }
+        return null;
+    }
+
+    private ResponseCookie cookie(SessionPlatform platform, String value, Duration maxAge) {
+        return ResponseCookie.from(platform.cookie(), value)
                 .httpOnly(true)
                 .secure(props.jwt().refreshCookieSecure())
                 .sameSite("Strict")

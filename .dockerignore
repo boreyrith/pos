@@ -1,0 +1,15 @@
+# The web images (web.Dockerfile) are built from the repository root: send only what they need.
+# Never send database dumps, secrets or the other apps' build output.
+**/node_modules
+**/.next
+**/*.tsbuildinfo
+**/.env*
+.git
+backend
+mobile
+deploy
+scripts
+docs
+*.sql
+*.sql.gz
+*.dump

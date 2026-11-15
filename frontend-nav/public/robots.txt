@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /api/
+Disallow: /ctl/
+Disallow: /cas/
+Disallow: /cart
+Disallow: /track/
+Disallow: /account

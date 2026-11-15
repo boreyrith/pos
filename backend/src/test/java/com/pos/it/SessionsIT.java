@@ -158,8 +158,8 @@ class SessionsIT {
         Device d = login("tech", "tech12345", LAPTOP);
         String live = find(send("GET", "/auth/sessions", null, null, d.access(), LAPTOP).body(), true).get("id").asString();
         // An old, ended session with an expired token, as months of use would leave behind.
-        jdbc.sql("INSERT INTO user_sessions (id, user_id, created_at, last_used_at, expires_at, ended_at, end_reason) "
-                + "SELECT 'old-session', id, NOW() - INTERVAL 200 DAY, NOW() - INTERVAL 200 DAY, NOW() - INTERVAL 170 DAY, "
+        jdbc.sql("INSERT INTO user_sessions (id, user_id, platform, created_at, last_used_at, expires_at, ended_at, end_reason) "
+                + "SELECT 'old-session', id, 'CTL', NOW() - INTERVAL 200 DAY, NOW() - INTERVAL 200 DAY, NOW() - INTERVAL 170 DAY, "
                 + "NOW() - INTERVAL 180 DAY, 'SIGNED_OUT' FROM users WHERE username = 'tech'").update();
         jdbc.sql("INSERT INTO refresh_tokens (user_id, session_id, token_hash, expires_at, revoked) "
                 + "SELECT id, 'old-session', 'old-token-hash', NOW() - INTERVAL 170 DAY, TRUE FROM users WHERE username = 'tech'").update();

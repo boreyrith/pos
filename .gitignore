@@ -25,3 +25,9 @@ __pycache__/
 # Scratch files from manual upload testing
 /backend/evil.png
 /backend/logo.png
+
+# Web apps (npm workspaces: shared, frontend-ctl, frontend-cas)
+node_modules/
+.next/
+*.tsbuildinfo
+next-env.d.ts

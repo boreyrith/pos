@@ -23,7 +23,8 @@ public interface OfferingRepository extends JpaRepository<Offering, Long> {
             select o from Offering o
             where o.type in :types
               and (:activeOnly = false or o.active = true)
-              and (:forSale = false or (o.active = true and (o.type <> com.pos.common.OfferingType.ITEM or o.sellable = true)))
+              and (:forSale = false or (o.active = true and o.tillHidden = false
+                   and (o.type <> com.pos.common.OfferingType.ITEM or o.sellable = true)))
               and (:categoryId is null or o.category.id = :categoryId)
               and (:anyId = true or o.id in :ids)
               and (:lowStock = false or (o.type in (com.pos.common.OfferingType.PRODUCT, com.pos.common.OfferingType.ITEM)
@@ -54,6 +55,33 @@ public interface OfferingRepository extends JpaRepository<Offering, Long> {
 
     @EntityGraph(attributePaths = {"unit", "taxRate", "components", "components.item"})
     List<Offering> findWithComponentsByIdIn(Collection<Long> ids);
+
+    /**
+     * The online shop's entries, by name: switched on for it, active, and nothing a customer can't buy
+     * on their own (services, items not sold at the till). For one category and a search term if given.
+     */
+    @Query("""
+            select o.id from Offering o
+            where o.sellOnline = true and o.active = true
+              and o.type <> com.pos.common.OfferingType.SERVICE
+              and (o.type <> com.pos.common.OfferingType.ITEM or o.sellable = true)
+              and (:categoryId is null or o.category.id = :categoryId)
+              and (:q is null
+                   or lower(o.name) like lower(concat('%', :q, '%'))
+                   or o.nameKm like concat('%', :q, '%'))
+            order by o.name, o.id
+            """)
+    Page<Long> findOnlineIds(String q, Long categoryId, Pageable pageable);
+
+    /** The categories the online shop has something in, by name. */
+    @Query("""
+            select distinct c from Offering o join o.category c
+            where o.sellOnline = true and o.active = true
+              and o.type <> com.pos.common.OfferingType.SERVICE
+              and (o.type <> com.pos.common.OfferingType.ITEM or o.sellable = true)
+            order by c.name
+            """)
+    List<Category> findOnlineCategories();
 
     boolean existsBySku(String sku);
 

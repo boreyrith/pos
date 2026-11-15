@@ -43,7 +43,7 @@ node scripts/demo-data/product-images.mjs
 - coloured by kind of product;
 - a size badge such as 0-3M, 4T or EU 26, a pack size, or a SERVICE tag.
 
-It renders them to WebP with `sharp` from the frontend's dependencies and uploads them through the catalog's image API. Options:
+It renders them to WebP with `sharp` from the web apps' dependencies (the repository's node_modules) and uploads them through the catalog's image API. Options:
 - `--out DIR`: only write the files, to look at them first.
 - `--missing`: skip entries that already have a picture.
 

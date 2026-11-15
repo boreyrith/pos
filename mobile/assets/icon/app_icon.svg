@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="64 -58 1100 1100">
-  <!-- The web app's calculator icon (frontend/src/app/icon.svg) in the brand blue on a white tile. -->
+  <!-- The web app's calculator icon (frontend-ctl/src/app/icon.svg) in the brand blue on a white tile. -->
   <rect x="64" y="-58" width="1100" height="1100" fill="#ffffff" />
   <g fill="none" stroke="#1d5fb3" stroke-width="48" stroke-linecap="round">
     <rect x="269" y="120" width="597" height="744" rx="44" />

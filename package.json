@@ -1,0 +1,21 @@
+{
+  "name": "pos-web",
+  "private": true,
+  "description": "The POS web apps on one site: frontend-nav (the portal, /), frontend-buy (the online shop, /buy), frontend-cas (the till, /cas), frontend-ctl (administration, /ctl) and frontend-app (the mobile app's download page, /app), sharing @pos/shared.",
+  "workspaces": [
+    "shared",
+    "frontend-nav",
+    "frontend-buy",
+    "frontend-cas",
+    "frontend-ctl",
+    "frontend-app"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w frontend-ctl & npm run dev -w frontend-cas & npm run dev -w frontend-buy & npm run dev -w frontend-app & npm run dev -w frontend-nav",
+    "build": "npm run build -w frontend-ctl && npm run build -w frontend-cas && npm run build -w frontend-buy && npm run build -w frontend-app && npm run build -w frontend-nav",
+    "typecheck": "npm run typecheck --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm test -w @pos/shared && npm test -w frontend-buy",
+    "i18n:check": "node shared/scripts/i18n-check.mjs"
+  }
+}

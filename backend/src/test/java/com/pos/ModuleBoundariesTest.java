@@ -62,6 +62,8 @@ class ModuleBoundariesTest {
             "loyalty", "loyalty",           // points and tiers (checkout: sales.CustomerRewards)
             "accounting", "accounting",     // the books (sales.SaleBookkeeping, inventory.StockBookkeeping)
             "purchasing", "purchasing",     // purchase orders, deliveries, vendor invoices and payments
+            "shop", "shop",                 // the online shop: customer accounts, online orders (sales.OrderService checkout)
+            "mobileapp", "mobileapp",       // the mobile app's download page: version, links, the Android APK
             "report", "report",
             "config", "config",             // security and wiring across modules
             "seed", "seed",                 // development data

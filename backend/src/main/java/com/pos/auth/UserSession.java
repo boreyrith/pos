@@ -34,6 +34,11 @@ public class UserSession {
     @JoinColumn(name = "user_id", updatable = false)
     private User user;
 
+    /** Administration, the till or the mobile app: each has its own sessions. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, updatable = false, length = 3)
+    private SessionPlatform platform;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -64,9 +69,10 @@ public class UserSession {
     @Column(name = "end_reason", length = 20)
     private EndReason endReason;
 
-    public UserSession(String id, User user, Instant expiresAt, ClientInfo client, boolean remember) {
+    public UserSession(String id, User user, SessionPlatform platform, Instant expiresAt, ClientInfo client, boolean remember) {
         this.id = id;
         this.user = user;
+        this.platform = platform;
         this.expiresAt = expiresAt;
         this.remember = remember;
         seenFrom(client);

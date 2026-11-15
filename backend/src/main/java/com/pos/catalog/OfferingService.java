@@ -205,6 +205,7 @@ public class OfferingService {
         m.put("Low-stock alert", o.getType().tracksStock() ? String.valueOf(o.getLowStockThreshold()) : null);
         m.put("Active", o.isActive() ? "yes" : "no");
         m.put("Sold at till", o.getType() == OfferingType.ITEM ? (o.isSellable() ? "yes" : "no") : null);
+        m.put("Sold online", o.isSellOnline() ? "yes" : "no");
         m.put("Packs", o.getPacks().stream().map(p -> p.getUnit().getSymbol() + "=" + p.getFactor()).sorted()
                 .reduce((a, b) -> a + ", " + b).orElse(null));
         m.put("Contents", o.getPackageLines().stream()
@@ -398,6 +399,12 @@ public class OfferingService {
         o.setTaxRate(taxRate(req.taxRateId(), o.getTaxRate()));
         if (req.active() != null) {
             o.setActive(req.active());
+        }
+        if (req.sellOnline() != null) {
+            if (req.sellOnline() && (type == OfferingType.SERVICE)) {
+                throw ApiException.badRequest("Services can't be sold in the online shop");
+            }
+            o.setSellOnline(req.sellOnline());
         }
         if (type.tracksStock() && req.lowStockThreshold() != null) {
             o.setLowStockThreshold(req.lowStockThreshold());

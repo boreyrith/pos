@@ -23,7 +23,7 @@ import com.pos.tax.TaxKey;
  * goes on top of it (tax = amount x r). Rounding is half-up to cents.
  * <p>Each group's discount and tax are then shared over its lines by value, the last line taking
  * the leftover cent, so line amounts add up exactly to the order's. Returns refund from these.
- * <p>The web client mirrors this in lib/pricing.ts; both are checked against
+ * <p>The web apps mirror this in shared/utils/pricing.ts; both are checked against
  * src/test/resources/pricing-cases.json.
  */
 public final class PricingCalculator {

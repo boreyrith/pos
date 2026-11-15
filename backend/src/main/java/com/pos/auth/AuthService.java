@@ -1,13 +1,9 @@
 package com.pos.auth;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.HexFormat;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,8 +26,11 @@ public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     /** A login result: the access token response plus a raw refresh token for the cookie. */
-    /** {@code remember}: whether the refresh cookie should outlive the browser ("Remember me" at sign-in). */
-    public record Session(TokenResponse tokens, String refreshToken, boolean remember) {
+    /**
+     * {@code remember}: whether the refresh cookie should outlive the browser ("Remember me" at sign-in).
+     * {@code platform}: whose cookie it goes in.
+     */
+    public record Session(TokenResponse tokens, String refreshToken, boolean remember, SessionPlatform platform) {
     }
 
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -66,7 +65,7 @@ public class AuthService {
     }
 
     @Transactional
-    public Session login(String username, String password, boolean remember, ClientInfo client) {
+    public Session login(String username, String password, boolean remember, SessionPlatform platform, ClientInfo client) {
         String name = username.trim();
         Instant now = Instant.now();
         String ip = client == null ? null : client.ip();
@@ -107,14 +106,15 @@ public class AuthService {
         user.setFailedLogins(0);
         user.setLockedUntil(null);
         user.setLastLoginAt(now);
-        audit.logAs(actor, AuditAction.LOGIN, "User", user.getId(), "Signed in on "
+        audit.logAs(actor, AuditAction.LOGIN, "User", user.getId(), "Signed in to " + platform.label() + " on "
                 + DeviceNames.describe(client == null ? null : client.userAgent()).label());
-        return issue(user, null, client, remember);
+        return issue(user, null, platform, client, remember);
     }
 
     /** Someone changes their own password; other sessions are signed out and this one renewed. */
     @Transactional
-    public Session changePassword(Long userId, String current, String next, boolean remember, ClientInfo client) {
+    public Session changePassword(Long userId, String current, String next, boolean remember, SessionPlatform platform,
+                                  ClientInfo client) {
         User user = users.findWithBranchById(userId).orElseThrow();
         if (!passwordEncoder.matches(current, user.getPasswordHash())) {
             throw ApiException.badRequest("Your current password is not right");
@@ -128,7 +128,7 @@ public class AuthService {
         sessions.endAll(user.getId(), UserSession.EndReason.PASSWORD_CHANGED, user.getId());
         audit.logAs(new Actor(user.getId(), user.getUsername(), user.getBranch().getId()), AuditAction.PASSWORD_CHANGED,
                 "User", user.getId(), "Changed own password");
-        return issue(user, null, client, remember);
+        return issue(user, null, platform, client, remember);
     }
 
     private static ApiException wrongPassword() {
@@ -144,12 +144,17 @@ public class AuthService {
      * that user (someone else may hold it), with one exception: within a short grace period after
      * the rotation, the browser most likely never got the response (a reload or a dropped
      * connection mid-refresh), so it gets a new token instead of being signed out. A token revoked
-     * by signing out, a password change or an admin never gets that grace.
+     * by signing out, a password change or an admin never gets that grace. A token works only on the
+     * platform its session was signed in on.
      */
     @Transactional(noRollbackFor = ApiException.class)
-    public Session refresh(String rawToken, ClientInfo client) {
+    public Session refresh(String rawToken, SessionPlatform platform, ClientInfo client) {
         RefreshToken token = refreshTokens.findByTokenHash(hash(rawToken))
                 .orElseThrow(AuthService::sessionExpired);
+        if (token.getSession() != null && token.getSession().getPlatform() != platform) {
+            // Another platform's session (its cookie sent to the wrong app): not signed in here, and not a theft.
+            throw sessionExpired();
+        }
         User user = token.getUser();
         Instant now = Instant.now();
         if (token.isRevoked() && token.getSession() != null && token.getSession().getEndedAt() != null) {
@@ -160,7 +165,7 @@ public class AuthService {
             if (withinReuseGrace(token, now) && user.isActive() && !token.getExpiresAt().isBefore(now)) {
                 log.info("Refresh token for {} reused {} ms after rotation; treating it as a lost response", user.getUsername(),
                         Duration.between(token.getRotatedAt(), now).toMillis());
-                return issue(user, token.getSession(), client, token.getSession() == null || token.getSession().isRemember());
+                return issue(user, token.getSession(), platform, client, token.getSession() == null || token.getSession().isRemember());
             }
             sessions.endAll(user.getId(), UserSession.EndReason.TOKEN_REUSED, null);
             String when = token.getRotatedAt() == null ? "" : " (" + Duration.between(token.getRotatedAt(), now).toSeconds()
@@ -176,7 +181,7 @@ public class AuthService {
         }
         token.setRevoked(true);
         token.setRotatedAt(now);
-        return issue(user, token.getSession(), client, token.getSession() == null || token.getSession().isRemember());
+        return issue(user, token.getSession(), platform, client, token.getSession() == null || token.getSession().isRemember());
     }
 
     private boolean withinReuseGrace(RefreshToken token, Instant now) {
@@ -200,16 +205,16 @@ public class AuthService {
     }
 
     /**
-     * New tokens for a session: {@code session} null starts one (a sign-in, or a token from before
-     * sessions were kept); otherwise it continues, noting where it was used from.
+     * New tokens for a session: {@code session} null starts one on {@code platform} (a sign-in, or a token
+     * from before sessions were kept); otherwise it continues, noting where it was used from.
      */
-    private Session issue(User user, UserSession session, ClientInfo client, boolean remember) {
+    private Session issue(User user, UserSession session, SessionPlatform platform, ClientInfo client, boolean remember) {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         Instant expires = Instant.now().plus(props.jwt().refreshTokenTtl());
         if (session == null) {
-            session = userSessions.save(new UserSession(java.util.UUID.randomUUID().toString(), user, expires, client, remember));
+            session = userSessions.save(new UserSession(java.util.UUID.randomUUID().toString(), user, platform, expires, client, remember));
         } else {
             session.seenFrom(client);
             session.setExpiresAt(expires);
@@ -217,7 +222,7 @@ public class AuthService {
         refreshTokens.save(new RefreshToken(user, session, hash(raw), expires));
         var tokens = new TokenResponse(jwtService.createAccessToken(user, session.getId()), jwtService.accessTokenTtlSeconds(),
                 UserDto.from(user));
-        return new Session(tokens, raw, remember);
+        return new Session(tokens, raw, remember, session.getPlatform());
     }
 
     private static ApiException sessionExpired() {
@@ -225,11 +230,6 @@ public class AuthService {
     }
 
     static String hash(String raw) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
+        return com.pos.common.Hashes.sha256(raw);
     }
 }

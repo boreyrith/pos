@@ -3,7 +3,7 @@
  * Draws a product picture for every sellable catalog entry of the demo kids store (flat
  * illustrations, colour-coded by kind, with the size on a badge) and uploads it through the API.
  * Pictures are square; badges stay inside the middle 4:3 band, which is what the sell screen's tiles show.
- * Uses sharp from the frontend's dependencies to turn the drawings into WebP.
+ * Uses sharp from the web apps' dependencies to turn the drawings into WebP.
  *
  *   node scripts/demo-data/product-images.mjs              # draw and upload (replaces existing pictures)
  *   node scripts/demo-data/product-images.mjs --out DIR    # only write the files to DIR to look at
@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const sharp = createRequire(join(here, "../../frontend/package.json"))("sharp");
+const sharp = createRequire(join(here, "../../package.json"))("sharp");
 const API = process.env.API_URL ?? "http://localhost:8081/api";
 const args = process.argv.slice(2);
 const outDir = args.includes("--out") ? args[args.indexOf("--out") + 1] : null;

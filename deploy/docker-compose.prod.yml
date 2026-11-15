@@ -4,6 +4,11 @@
 # See DEPLOY.md.
 name: pos
 
+# Each service has a memory ceiling, so one that runs away (or a large upload) can't take the whole
+# server down with it; raise them in .env on a bigger server (MYSQL_MEMORY, BACKEND_MEMORY, WEB_MEMORY
+# for each web app, CADDY_MEMORY, BACKUP_MEMORY). The API uses up to 75% of its limit for Java's heap,
+# and needs about 1.5 GB to take a 100 MB APK upload. Together they fit a 4 GB server.
+#
 # Container logs are capped (5 files of 10 MB per service), so a server that runs for months
 # doesn't fill its disk with them.
 x-logging: &logging
@@ -17,13 +22,16 @@ services:
     image: mysql:8.4
     restart: unless-stopped
     logging: *logging
+    mem_limit: ${MYSQL_MEMORY:-1g}
     environment:
       MYSQL_DATABASE: pos_next
       MYSQL_USER: pos
       MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in deploy/.env}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in deploy/.env}
       TZ: UTC
-    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    # Packets for the largest file kept in the database, the mobile app's APK (up to 100 MB), which the
+    # MySQL driver sends escaped, about twice its size.
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--max-allowed-packet=256M"]
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -37,6 +45,7 @@ services:
     image: pos-backend:latest
     restart: unless-stopped
     logging: *logging
+    mem_limit: ${BACKEND_MEMORY:-1536m}
     env_file: .env
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -54,18 +63,103 @@ services:
       start_period: 90s
       retries: 5
 
-  frontend:
-    build: ../frontend
-    image: pos-frontend:latest
+  # The web apps, each under its own path on SITE_ADDRESS (the proxy routes /api, /ctl, /cas, /buy, /app,
+  # the rest): administration, the till, the online shop, the mobile app page, and the portal at /.
+  frontend-ctl:
+    build:
+      context: ..
+      dockerfile: web.Dockerfile
+      args:
+        APP: frontend-ctl
+    image: pos-frontend-ctl:latest
     restart: unless-stopped
     logging: *logging
-    environment:
-      API_URL: http://backend:8081
+    mem_limit: ${WEB_MEMORY:-384m}
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/login > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ctl/login > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  frontend-cas:
+    build:
+      context: ..
+      dockerfile: web.Dockerfile
+      args:
+        APP: frontend-cas
+    image: pos-frontend-cas:latest
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: ${WEB_MEMORY:-384m}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/cas/login > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  frontend-buy:
+    build:
+      context: ..
+      dockerfile: web.Dockerfile
+      args:
+        APP: frontend-buy
+    image: pos-frontend-buy:latest
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: ${WEB_MEMORY:-384m}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/buy/account > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  frontend-app:
+    build:
+      context: ..
+      dockerfile: web.Dockerfile
+      args:
+        APP: frontend-app
+    image: pos-frontend-app:latest
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: ${WEB_MEMORY:-384m}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/app > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  frontend-nav:
+    build:
+      context: ..
+      dockerfile: web.Dockerfile
+      args:
+        APP: frontend-nav
+    image: pos-frontend-nav:latest
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: ${WEB_MEMORY:-384m}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ > /dev/null || exit 1"]
       interval: 15s
       timeout: 5s
       start_period: 30s
@@ -75,6 +169,7 @@ services:
     image: caddy:2.10
     restart: unless-stopped
     logging: *logging
+    mem_limit: ${CADDY_MEMORY:-256m}
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
@@ -88,7 +183,11 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
-      - frontend
+      - frontend-ctl
+      - frontend-cas
+      - frontend-buy
+      - frontend-app
+      - frontend-nav
       - backend
 
   # A dump of the database every day (BACKUP_EVERY_HOURS), kept for BACKUP_KEEP_DAYS, in deploy/backups.
@@ -96,6 +195,7 @@ services:
     image: mysql:8.4
     restart: unless-stopped
     logging: *logging
+    mem_limit: ${BACKUP_MEMORY:-512m}
     entrypoint: ["/bin/sh", "/backup.sh"]
     environment:
       MYSQL_PWD: ${DB_ROOT_PASSWORD}
@@ -103,6 +203,7 @@ services:
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
     volumes:
       - ./backup.sh:/backup.sh:ro
+      - ./dump.sh:/dump.sh:ro
       - ./backups:/backups
     depends_on:
       # Waits for the API, so the first dump comes after the tables are created.
@@ -117,6 +218,7 @@ services:
     profiles: ["offsite"]
     restart: unless-stopped
     logging: *logging
+    mem_limit: ${BACKUP_MEMORY:-512m}
     entrypoint: ["/bin/sh", "/backup-offsite.sh"]
     environment:
       BACKUP_REMOTE: ${BACKUP_REMOTE:-}

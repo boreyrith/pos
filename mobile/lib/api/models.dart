@@ -1,4 +1,4 @@
-// The API's JSON shapes, mirroring frontend/src/lib/types.ts. Money comes as JSON numbers.
+// The API's JSON shapes, mirroring shared/types/index.ts. Money comes as JSON numbers.
 
 double _d(dynamic v) => v == null ? 0 : (v as num).toDouble();
 double? _dn(dynamic v) => v == null ? null : (v as num).toDouble();

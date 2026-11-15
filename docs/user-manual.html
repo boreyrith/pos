@@ -329,7 +329,7 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
         <li>If more than one currency is accepted, choose <span class="ui">Give change in</span> USD or KHR.</li>
         <li>The box at the bottom shows <span class="ui">Change</span>, or <span class="ui">Still to pay</span> in orange if the money is short. Press <span class="ui">Complete sale</span>.</li>
       </ol>
-      <p>The <span class="ui">Sale complete</span> dialog shows the change due in large figures and the receipt. Press <span class="ui">Print receipt</span>, then <span class="ui">New sale</span>.</p>
+      <p>The <span class="ui">Sale complete</span> dialog shows the change due in large figures and the receipt. Press <span class="ui">Print receipt</span> (or it prints by itself, if the till is set to), then <span class="ui">New sale</span>.</p>
       <div class="note rule"><b>Riel rounding</b>
         <p>Riel amounts are rounded to the nearest 100 ៛, because smaller notes are not in use. A shortfall of less than half a step (under 50 ៛) counts as paid.</p>
       </div>
@@ -355,6 +355,7 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
         <li>totals, VAT, the total in riel at the rate of the sale, and cash or KHQR details with change.</li>
       </ul>
       <p>It prints in the language of whoever prints it. Reprint any receipt from the invoice under <span class="ui">Sales</span>.</p>
+      <div class="note"><b>This till's printer</b><p>The printer button in the till's top bar sets up printing for this till only (kept in its browser): <span class="ui">Print the receipt when a sale is paid</span> prints without pressing the button, and <span class="ui">Copies</span> prints 2 or 3 receipts for each sale (one for the customer, one for the store); reprints from Sales print one. <span class="ui">Print a test page</span> checks that the whole width of the paper prints. Install the printer's driver on the till's computer, make it the default printer with the roll's paper size and no margins, and in the print window turn off headers and footers. To print without the print window, start Chrome with <code>--kiosk-printing</code> (add it to the till's Chrome shortcut).</p></div>
 
       <div class="note warn"><b>If prices changed</b>
         <p>If a price changed while the cart was open (for example a manager edited the catalog), the sale is refused with “Prices changed”. The cart reloads today's prices and lists what changed. Tell the customer the new total and charge again.</p>
@@ -451,6 +452,15 @@ flowchart LR
       <h3 id="cancel-order">Cancelling an unpaid order</h3>
       <p>An order <span class="chip warn">Awaiting payment</span> can be cancelled with <span class="ui">Cancel order</span>. Its items go back to stock. Paid orders are never cancelled; refund them instead.</p>
       <p>All returns are listed under <span class="path">Sales › Returns &amp; refunds</span>, with totals and the tax refunded.</p>
+
+      <h3 id="online-orders">Online orders</h3>
+      <p>Customers order on the shop's website, pay by KHQR, and either pick up at a branch or have the order delivered. A paid online order is an ordinary sale (cashier <b>Online shop</b>), so it is on the receipt list, in the reports and in stock history like any other.</p>
+      <p>At the till, <span class="path">Online orders</span> shows a red count of paid orders still to prepare. Each card has the customer's name and phone, the address for deliveries, and what to pack. When it is packed, tap <span class="ui">Ready to collect</span> (pickup) or <span class="ui">Out for delivery</span>, then <span class="ui">Collected</span> or <span class="ui">Delivered</span> when the customer has it. The customer sees each step on their order page.</p>
+      <p>Orders waiting for payment hold their items until the KHQR code expires; then they are cancelled and the items go back to stock. To refund a paid online order, open it (tap its number) and refund it as any sale.</p>
+      <p>Admins set the shop up under <span class="path">Settings › Online shop</span> (open or closed, pickup, delivery from which branch, the delivery fee and from what amount delivery is free). The shop can only be opened once KHQR takes real payments (<span class="path">Settings › Taxes &amp; payments</span>). What is sold online is chosen per product: tick <span class="ui">Sell in the online shop</span> when editing it in the Catalog.</p>
+      <p>Customers can cancel an order themselves while it is unpaid. Those who make an account in the shop sign in with their phone and a password. If the phone is already a customer's, the account is not linked to that customer (their online orders earn no points and aren't on their history) until you confirm it: when the customer shows you the phone, open them under <span class="path">Customers</span> and tap <span class="ui">Confirm</span> on <b>Online shop account</b>. A customer who forgot the password: tap <span class="ui">Remove account</span> there, and they create it again.</p>
+      <h3 id="mobile-app">The mobile app</h3>
+      <p>Staff can also sell from a phone or tablet with the POS app. Its download page is at <span class="path">/app</span> on this site (the <b>Mobile app</b> tile on the home page): it has the Android app to download, the install steps, and the server address to type in the app. Admins upload a new Android version, and add App Store or TestFlight links once the app is published, under <span class="path">Settings › Mobile app</span>.</p>
     </section>
 
     <!-- 7 -->

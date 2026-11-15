@@ -1,11 +1,38 @@
-# POS (Spring Boot + Next.js)
+# POS (Spring Boot + Next.js + Flutter)
 
-A rebuild of the POS system: a Spring Boot API and a Next.js web app, backed by MySQL.
+A rebuild of the POS system: a Spring Boot API and five Next.js web apps on one site, backed by MySQL.
 
 | Part | Stack | Folder |
 |------|-------|--------|
 | API | Spring Boot 4.1, Java 25, Spring Security (JWT), JPA, Flyway, MySQL 8.4 | `backend/` |
-| Web | Next.js 16 (App Router), React 19, TanStack Query, Tailwind CSS 4 | `frontend/` |
+| Web: administration, at `/ctl` | Next.js 16 (App Router), React 19, TanStack Query, Tailwind CSS 4 | `frontend-ctl/` |
+| Web: the till (Sell, Sales, Online orders), at `/cas` | the same | `frontend-cas/` |
+| Web: the portal (the site's front door), at `/` | the same | `frontend-nav/` |
+| Web: the online shop for customers, at `/buy` | the same | `frontend-buy/` |
+| Web: the mobile app's download page, at `/app` | the same | `frontend-app/` |
+| Code both web apps use | API client, sign-in, API types, pricing, Khmer, UI components | `shared/` (`@pos/shared`) |
+| Cashier app (iOS, Android) | Flutter | `mobile/` |
+
+The web apps are npm workspaces of the repository root (one `npm install` there). Both show the whole
+menu for the signed-in role; a page of the other app opens there (`shared/zones.ts`). Sessions are kept per
+platform (administration, the till, the mobile app), each with its own sign-in: signing out of the till
+leaves administration signed in, and **My account > Devices** lists the sessions by platform.
+The portal (`frontend-nav`) shows the store and a tile per app (shop, mobile app, and for staff the till and
+administration), with live status from public endpoints. The mobile app page (`frontend-app`, backend module
+`mobileapp`) offers the Android APK uploaded under Settings > Mobile app (up to 100 MB, kept in the database,
+with its SHA-256), install steps per platform, store or TestFlight links once published, and the server
+address to enter in the app.
+
+The online shop (`frontend-buy`, backend module `shop`) sells the products ticked "Sell in the online shop": customers order
+as guests or with an account (phone and password), pay by KHQR, and pick up at a branch or have it delivered (flat fee,
+free from an amount; Settings > Online shop). An online order is an ordinary sale placed by the built-in "Online shop"
+user, so pricing, promotions, coupons, tax, stock, receipts and the books work as at the till; staff prepare it under the
+till's Online orders. Online orders don't spend loyalty points, and an account sees only its own online orders. Phone
+numbers can't be verified by SMS yet, so an account made with a phone that is already a customer's isn't linked to
+that customer (no points, not on their history) until staff confirm it on the customer's page in administration, where
+they also remove an account whose password was forgotten. Customers can cancel an order while it is unpaid. On a server
+the shop can't be opened while KHQR is in test mode, and placing orders, sign-ups, promotion previews and payment
+checks are limited per address.
 
 ## What it does (first release)
 
@@ -58,11 +85,11 @@ The whole interface is available in **English** (the default for everyone and fo
 - **Switching:** the language button in the side bar, the switch in *My account*, or the switch on the sign-in page.
 - **Saved per person:** the choice is stored on the account (`users.language`), so it follows them to any till. Before sign-in, it's remembered on the device. A choice made on the sign-in page is saved to the account at sign-in.
 - **Server text:** errors, validation messages, report names, columns and notes, permission names, stock reasons and the System tab are translated on screen. Messages that carry names and numbers ("Not enough stock of X in Y (2 left, 3 needed)") are matched by pattern, keeping the names.
-- **Receipts:** printed in the language of whoever prints them, with Khmer month names. Each line shows the product's English and Khmer names as before.
+- **Receipts:** printed in the language of whoever prints them, with Khmer month names. Each till sets up its own printing (the printer button in its top bar, kept in that browser): print automatically when a sale is paid, 1 to 3 copies of a sale's receipt, and a test page; printing goes through the browser to the printer installed on the till's computer (silently with Chrome's `--kiosk-printing`), and only the receipt is laid out, so the roll isn't fed blank paper. Each line shows the product's English and Khmer names as before.
 - **What stays as entered:** catalog, customer, vendor, branch and category names, notes, the receipt footer, and audit summaries. These are your data, and products have their own Khmer name field. CSV exports and browser tab titles stay in English.
 - **Font:** the system font is used, falling back to the operating system's Khmer font (Khmer UI, Khmer Sangam MN, Noto Sans Khmer), so it works offline. Khmer text gets extra line height.
 
-How it works (frontend): the English text is the key. `t("Cash payment")` in components (from `useT()`), `translate()` in plain code, and `msg()` for labels kept in constants. Khmer lives in [`src/lib/i18n/km.ts`](frontend/src/lib/i18n/km.ts), and patterns for server messages in [`km-patterns.ts`](frontend/src/lib/i18n/km-patterns.ts).
+How it works (frontend): the English text is the key. `t("Cash payment")` in components (from `useT()`), `translate()` in plain code, and `msg()` for labels kept in constants. Khmer lives in [`shared/i18n/km.ts`](shared/i18n/km.ts), and patterns for server messages in [`km-patterns.ts`](shared/i18n/km-patterns.ts).
 - **Fallback:** missing text falls back to English, so nothing shows blank.
 - **Placeholders:** `{n}`-style placeholders are filled in: `t("{n} items", { n })`.
 - **Two meanings:** a word with two meanings takes a context, `t("Change||quantity")`, which shows "Change" in English but has its own Khmer.
@@ -76,15 +103,22 @@ You need Docker, Java 25, Maven and Node 20+. This is for your own computer: on 
 ```bash
 docker compose up -d mysql                     # MySQL on localhost:3307
 cd backend && mvn spring-boot:run              # API on http://localhost:8081/api
-cd frontend && npm install && npm run dev      # Web on http://localhost:3000
+npm install && npm run dev                     # both web apps, from the repository root: http://localhost:3000
 ```
+
+Open http://localhost:3000: as on a real server, `/` is the portal, the shop is at `/buy`, the mobile app
+page at `/app`, the till at `/cas`, administration at `/ctl`, and `/api` reaches the backend. In development
+the portal (port 3000) passes `/ctl` on to administration's dev server (3001), `/cas` to the till's (3002),
+`/buy` to the shop's (3003), `/app` to the app page's (3004) and `/api` to the backend (`API_URL`, default
+`http://localhost:8081`), so the browser sees one site (each app still signs in on its own). Run one app alone with
+`npm run dev -w frontend-ctl` (then http://localhost:3001/ctl) or `-w frontend-cas` (http://localhost:3002/cas).
 
 The `dev` profile (the default) fills an empty database with demo accounts and a **kids fashion and baby store**: 63 products (clothing by size, shoes, accessories, baby care, diapers, feeding, toys, gear), store supplies, 4 services (one priced per hour), 2 gift sets, 5 vendors and opening stock in the Main Shop showroom. The usernames and passwords are in [`DevDataSeeder.java`](backend/src/main/java/com/pos/seed/DevDataSeeder.java). These are for local development only.
 
 For demos and end-to-end testing, [`scripts/demo-data`](scripts/demo-data/README.md) adds about six weeks of history: purchasing, transfers, ~250 sales, returns and held sales. It also has a reset script that clears a dev database first.
 
 - API docs (Swagger UI): http://localhost:8081/api/docs
-- The web app sends `/api/*` to the backend through a Next.js route ([`src/app/api/[...path]/route.ts`](frontend/src/app/api/[...path]/route.ts)), so the browser sees a single origin. Set `API_URL` if the backend isn't at `http://localhost:8081`.
+- On a server, the proxy in front (Caddy, nginx or Apache, see [deploy/DEPLOY.md](deploy/DEPLOY.md)) sends `/api` to the backend, `/ctl`, `/cas`, `/buy` and `/app` to their apps and the rest to the portal, so the browser sees a single origin. Each app signs in separately (staff cookies per platform, the shop's own customer cookie).
 
 ## Mobile app
 
@@ -97,7 +131,7 @@ cp .env.example .env    # then edit
 docker compose --profile app up -d --build
 ```
 
-Web on http://localhost:3000, API on http://localhost:8081/api.
+Web on http://localhost:3000 (a small Caddy routes `/api`, `/ctl`, `/cas`, `/buy`, `/app` and the portal as on a server), API on http://localhost:8081/api.
 
 ### Camera scanning
 
@@ -107,7 +141,7 @@ Browsers only allow the camera on a secure page: `http://localhost` on the same 
 
 ## Configuration
 
-Business settings (company details, VAT, time zone, branches, currencies, KHQR and Bakong) are edited in the app under **Settings**; units and categories are managed from the **Catalog**. **Help** (at the bottom of the menu) shows the staff manual to everyone signed in. Its source is [`docs/user-manual.html`](docs/user-manual.html): edit that file, and `npm run dev` / `npm run build` regenerate the page the app serves (`frontend/public/manual/index.html`, kept in the repo for Docker builds). **Settings > System** shows how the server itself is set up (version, environment, database, session lengths, sign-in lockout, held-sale and KHQR timers, background jobs), names the environment variable behind each, and flags what needs changing before going live (development signing key, insecure cookie, missing secrets key). On the very first start the company settings are filled from the environment defaults (`STORE_NAME`, `STORE_TIMEZONE`, `BAKONG_ACCOUNT_ID`, `KHQR_MERCHANT_NAME`, `KHQR_MERCHANT_CITY`); after that the app's values win. `KHQR_MODE`, `BAKONG_API_URL` and `BAKONG_TOKEN` apply until an admin saves Settings > Taxes & payments.
+Business settings (company details, VAT, time zone, branches, currencies, KHQR and Bakong) are edited in the app under **Settings**; units and categories are managed from the **Catalog**. **Help** (at the bottom of the menu) shows the staff manual to everyone signed in. Its source is [`docs/user-manual.html`](docs/user-manual.html): edit that file, and `npm run dev` / `npm run build` regenerate the page the app serves (`frontend-ctl/public/manual/index.html`, kept in the repo for Docker builds). **Settings > System** shows how the server itself is set up (version, environment, database, session lengths, sign-in lockout, held-sale and KHQR timers, background jobs), names the environment variable behind each, and flags what needs changing before going live (development signing key, insecure cookie, missing secrets key). On the very first start the company settings are filled from the environment defaults (`STORE_NAME`, `STORE_TIMEZONE`, `BAKONG_ACCOUNT_ID`, `KHQR_MERCHANT_NAME`, `KHQR_MERCHANT_CITY`); after that the app's values win. `KHQR_MODE`, `BAKONG_API_URL` and `BAKONG_TOKEN` apply until an admin saves Settings > Taxes & payments.
 
 Deployment settings are environment variables; see [`.env.example`](.env.example) and [`application.yml`](backend/src/main/resources/application.yml). Settings are cached in memory, so run one backend instance (or restart the others after a change).
 
@@ -157,7 +191,7 @@ Built-in roles (permissions can be adjusted, except Super Admin; built-in roles 
 | **Inventory Staff** | View inventory, adjust, count and transfer stock. |
 | **Accountant** | Orders, dashboard, tax report and settings, read-only, across all branches. |
 
-**Item discounts:** "Discount items" lets a role take a % or an amount off a single cart line (the tag button under the item). Each role can have a maximum item discount % (a % discount is held to the % entered, an amount to the % of the line it takes off); a role manager can't allow more than their own limit. Built-in: Admin no limit, Manager up to 20%, Cashier none. Item discounts come off first, then any order discount (worked out on what is left), then VAT, included or added; the Java calculator and `lib/pricing.ts` are checked against the same shared cases. Receipts and order pages show each line's discount and an "Item discounts" total, the tax report counts them in discounts given, returns refund what the discounted line was paid, and each sale with item discounts is in the audit log ("Item discounted").
+**Item discounts:** "Discount items" lets a role take a % or an amount off a single cart line (the tag button under the item). Each role can have a maximum item discount % (a % discount is held to the % entered, an amount to the % of the line it takes off); a role manager can't allow more than their own limit. Built-in: Admin no limit, Manager up to 20%, Cashier none. Item discounts come off first, then any order discount (worked out on what is left), then VAT, included or added; the Java calculator and `shared/utils/pricing.ts` are checked against the same shared cases. Receipts and order pages show each line's discount and an "Item discounts" total, the tax report counts them in discounts given, returns refund what the discounted line was paid, and each sale with item discounts is in the audit log ("Item discounted").
 
 **Price overrides:** by default every sale uses the catalog price. "Override prices" lets a role change a line's price on the sell screen (tap the price), always with a reason; "Sell below cost" also allows a price under the item's cost. Built-in: Admin has both, Manager can override but not below cost, Cashier neither. The server enforces both rules and the reason on every checkout. Each order line keeps the catalog price, the price charged, the reason and who changed it; VAT (included or added) and order discounts work on the new price; receipts show "Price changed (was ...)", the order page shows who and why, and each sale with changed prices is recorded in the audit log ("Price overridden").
 
@@ -191,7 +225,7 @@ Example at 10%: a $110.00 item under *VAT included* holds $10.00 VAT; a $100.00 
 - **Packages** are taxed once, on the package price at the package's own rate; what is inside is never taxed again.
 - **Discounts** (order level, % or amount) are shared over the tax groups by value before tax, then over each group's lines; the last line takes any leftover cent, so line amounts always add up to the order.
 - **Rounding:** half-up to the cent, per tax group.
-- **One source of truth:** the server (`tax/TaxService`, `sales/PricingCalculator`) decides every amount. The sell screen mirrors it (`lib/pricing.ts`) for the live total, and both are tested against the same cases (`backend/src/test/resources/pricing-cases.json`), so the cart shows what the server charges.
+- **One source of truth:** the server (`tax/TaxService`, `sales/PricingCalculator`) decides every amount. The sell screen mirrors it (`shared/utils/pricing.ts`) for the live total, and both are tested against the same cases (`backend/src/test/resources/pricing-cases.json`), so the cart shows what the server charges.
 - **Snapshots:** each order stores its tax mode and label, each line's rate, whether its price included tax, and its discount, net, tax and paid amounts; each return stores the amount and tax refunded per line. Changing the mode or rates only affects new sales: past receipts, refunds and reports never change.
 - **Refunds:** returning *q* of a line's *n* units refunds `round(paid × q ÷ n)` with the same share of its tax (counted cumulatively, so 1 + 1 + 1 refunds the same as 3); the last units refund exactly what is left. An order can never be refunded more than was paid, or tax refunded that was not charged.
 - **Switching modes** takes effect for the next sale. A sale reads the settings once, so all its lines use the same mode even while an admin is changing it.
@@ -205,8 +239,8 @@ cd backend && mvn test        # unit tests: pricing, tax rules, refunds, stock m
 cd backend && mvn verify      # + integration tests against MySQL in Docker (Testcontainers): tax modes,
                               #   mode switching, historical orders, validation, partial/full returns,
                               #   packages, concurrent checkouts, tax report and CSV
-cd frontend && npm test       # pricing.ts against the same shared cases as the backend
-cd frontend && npm run lint && npx tsc --noEmit
+npm test                      # (repository root) shared/: pricing.ts against the backend's cases, formatting, Khmer
+npm run typecheck && npm run lint && npm run i18n:check   # shared/ and both web apps
 ```
 
 ## Layout
@@ -222,9 +256,19 @@ backend/src/main/java/com/pos/
   report/    dashboard, tax report + CSV       user/     staff accounts, staff list
   config/    security, app properties          seed/     demo data (dev profile)
   settings/  company information and system-wide settings, logo
-frontend/src/
-  app/(app)/ pos, orders, catalog, inventory, dashboard, reports/tax, settings, users pages
-  app/api/   proxy to the backend
-  lib/       API client, auth, pricing and tax (mirrors PricingCalculator.java)
-  components/ UI kit, app shell, receipt, payment dialogs, settings panels
+frontend-ctl/src/              administration (basePath /ctl)
+  app/(app)/ catalog, inventory, purchasing, customers, marketing, dashboard, reports, accounting,
+             settings, users, help pages
+  components/settings/          settings panels
+frontend-nav/src/              the portal (no basePath): the store and a tile per app
+frontend-buy/src/              the online shop (basePath /buy): home, products, cart, track/[number], account
+frontend-app/src/              the mobile app's download page (basePath /app)
+frontend-cas/src/              the till (basePath /cas)
+  app/(app)/ pos (sell), orders (sales, returns)
+  components/pos/               receipt, cash and KHQR payment, held sales
+shared/                        @pos/shared, used by both
+  api/       API client (client.ts), queries      auth/   sign-in, branch
+  types/     API types                            utils/  pricing and tax (mirrors PricingCalculator.java), formatting
+  i18n/      Khmer                                components/ UI kit, app shell and menu, sign-in page, account
+  zones.ts   which app serves which page          styles/ design tokens (globals.css)
 ```

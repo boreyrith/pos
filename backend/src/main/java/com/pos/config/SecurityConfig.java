@@ -34,6 +34,10 @@ public class SecurityConfig {
                         // Checked by MetricsAccessFilter (METRICS_TOKEN), not by a staff sign-in.
                         .requestMatchers(MetricsAccessFilter.PATH).permitAll()
                         .requestMatchers(HttpMethod.GET, "/settings/company/logo", "/offerings/*/image").permitAll()
+                        // The online shop, for customers: they sign in with their own cookie (shop.CustomerAuthService).
+                        .requestMatchers("/shop/**").permitAll()
+                        // The mobile app's download page (frontend-app).
+                        .requestMatchers(HttpMethod.GET, "/mobile-app", "/mobile-app/apk").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

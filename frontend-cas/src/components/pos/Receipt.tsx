@@ -1,0 +1,289 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import { amountIn, cashIn, dateTime, hours, money, qty } from "@pos/shared/utils/format";
+import { taxLabel } from "@pos/shared/utils/pricing";
+import { logoUrl, useCurrencies } from "@pos/shared/api/queries";
+import type { Order, StoreSettings } from "@pos/shared/types";
+import { useT } from "@pos/shared/i18n";
+import { tierLabel } from "@pos/shared/components/TierBadge";
+import { cx } from "@pos/shared/components/ui";
+
+/**
+ * Printing on 58mm paper: overrides the 80mm receipt page in globals.css (5mm margins, 48mm printed,
+ * the usual print width of 58mm printers).
+ * :has() makes it win over the plain .print-area rule.
+ */
+const PAPER_58_CSS = `@media print {
+  @page { size: 58mm auto; margin: 5mm; }
+  .print-area:has(.receipt-58) { width: 48mm; }
+}`;
+
+/** The paper a receipt (or the test page) is drawn on: the store's width, black on white, as printed. */
+function ReceiptPaper({ narrow, children }: { narrow: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      className={cx(
+        "mx-auto w-full bg-white font-mono leading-relaxed text-black",
+        narrow ? "receipt-58 max-w-[232px] p-2 text-[10px]" : "max-w-[320px] p-4 text-[12px]",
+      )}
+    >
+      {narrow && <style>{PAPER_58_CSS}</style>}
+      {children}
+    </div>
+  );
+}
+
+/** Each further copy on its own page: the printer cuts between them. */
+const COPIES_CSS = "@media print { .receipt-copy + .receipt-copy { break-before: page; } }";
+
+/**
+ * Printing a sheet: only it is laid out (everything else is display: none, not just invisible, so the
+ * roll isn't fed blank paper for the rest of the screen). printSheet() (lib/printer) marks it active.
+ */
+const SHEET_CSS = `.print-sheet { display: none; }
+@media print {
+  body:has(> .print-sheet.active) > :not(.print-sheet.active) { display: none !important; }
+  .print-sheet.active { display: block; position: static !important; }
+}`;
+
+const noSubscribe = () => () => {};
+
+/** What printSheet(id) prints, kept at the end of the page (a portal), apart from what is on screen. */
+export function PrintSheet({ id, children }: { id: string; children: React.ReactNode }) {
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  if (!mounted) return null;
+  return createPortal(
+    <div className="print-sheet print-area" data-sheet={id}>
+      <style>{SHEET_CSS}</style>
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
+/** The receipt on screen, and printed `copies` times by printSheet(`receipt-${order.id}`). */
+export function PrintableReceipt({ order, store, copies = 1, className }: { order: Order; store: StoreSettings; copies?: number; className?: string }) {
+  return (
+    <>
+      <div className={className}>
+        <Receipt order={order} store={store} />
+      </div>
+      <PrintSheet id={receiptSheet(order)}>
+        {copies > 1 && <style>{COPIES_CSS}</style>}
+        {Array.from({ length: copies }, (_, i) => (
+          <div key={i} className="receipt-copy">
+            <Receipt order={order} store={store} />
+          </div>
+        ))}
+      </PrintSheet>
+    </>
+  );
+}
+
+export const receiptSheet = (order: Pick<Order, "id">) => `receipt-${order.id}`;
+
+/** A test page for this till's printer: the paper's width edge to edge, English and Khmer, and a cut. */
+export function TestReceipt({ store }: { store: StoreSettings }) {
+  const t = useT();
+  const narrow = store.receiptWidth === 58;
+  return (
+    <ReceiptPaper narrow={narrow}>
+      <div className="text-center">
+        <div className="text-[1.17em] font-bold">{store.name}</div>
+        <div>{t("Printer test")}</div>
+        <div>{dateTime(new Date().toISOString(), store.timezone)}</div>
+        <div>{t("Paper: {width} mm", { width: store.receiptWidth })}</div>
+      </div>
+      <hr className="my-2 border-dashed border-black" />
+      <div className="flex justify-between">
+        <span>|&lt;</span>
+        <span>{t("The whole width")}</span>
+        <span>&gt;|</span>
+      </div>
+      <div className="overflow-hidden whitespace-nowrap">{"0123456789".repeat(8)}</div>
+      <div lang="km" className="mt-1 text-center">សូមអរគុណ! ព្រីនធ័របោះពុម្ពភាសាខ្មែរបាន</div>
+      <Row label={t("TOTAL")} value="$ 12.34" />
+      <hr className="my-2 border-dashed border-black" />
+      <div className="text-center">{t("If a side is cut off, check the paper size and margins in the print settings.")}</div>
+    </ReceiptPaper>
+  );
+}
+
+/**
+ * A receipt drawn on the store's paper (Settings > Company: 80mm or 58mm). PrintableReceipt shows it and
+ * prints it. Tax lines follow the order's own tax mode and label (as sold), not the current
+ * settings, so reprints never change.
+ */
+export function Receipt({ order, store }: { order: Order; store: StoreSettings }) {
+  const t = useT();
+  const vat = order.taxLabel;
+  const exclusive = order.taxMode === "EXCLUSIVE";
+  const narrow = store.receiptWidth === 58;
+  const paid = order.payments.find((p) => p.status === "PAID" || p.status === "REFUNDED");
+  const currencies = useCurrencies().data ?? [];
+  const find = (code: string | null) => currencies.find((c) => c.code === code);
+  const show = (amount: number, code: string | null) => {
+    const c = find(code);
+    return c ? amountIn(amount, c) : `${amount} ${code ?? ""}`;
+  };
+  return (
+    <ReceiptPaper narrow={narrow}>
+      <div className="text-center">
+        {store.hasLogo && (
+          // eslint-disable-next-line @next/next/no-img-element -- served by our API, sized for the paper
+          <img src={logoUrl(store.logoVersion)} alt="" className="mx-auto mb-1 max-h-16 max-w-[60%] object-contain" />
+        )}
+        <div className="text-[1.17em] font-bold">{store.name}</div>
+        {store.legalName && <div>{store.legalName}</div>}
+        {store.address && <div>{store.address}</div>}
+        {store.phone && <div>{t("Tel")} {store.phone}</div>}
+        {store.taxId && order.taxMode !== "NONE" && <div>{t("{vat} TIN", { vat })} {store.taxId}</div>}
+        <div className="mt-1">{order.branchName}</div>
+        <div>{t("Receipt {number}", { number: order.orderNumber })}</div>
+        <div>{dateTime(order.completedAt ?? order.createdAt, store.timezone)}</div>
+        <div>{t("Cashier: {name}", { name: order.cashierName })}</div>
+        {order.walkIn ? (
+          order.customerName && <div>{t("Customer: {name}", { name: order.customerName })}</div>
+        ) : (
+          <>
+            <div>{t("Customer: {name}", { name: order.customerName })}</div>
+            {order.customerPhone && <div>{t("Tel")} {order.customerPhone}</div>}
+            {order.customerTaxId && <div>{t("Customer VAT TIN {tin}", { tin: order.customerTaxId })}</div>}
+          </>
+        )}
+        {order.status === "REFUNDED" && <div className="mt-1 font-bold">*** {t("REFUNDED")} ***</div>}
+        {order.status === "PARTIALLY_REFUNDED" && <div className="mt-1 font-bold">*** {t("PARTLY REFUNDED")} ***</div>}
+      </div>
+      <hr className="my-2 border-dashed border-black" />
+      {order.items.map((item, i) => (
+        <div key={i} className="mb-1">
+          <div>{item.name}</div>
+          {item.nameKm && <div lang="km">{item.nameKm}</div>}
+          <div className="flex justify-between gap-2">
+            <span className="min-w-0">
+              {item.quantity} × {money(item.unitPrice, order.currency)}
+              {item.hours != null ? ` × ${hours(item.hours)}` : item.unit ? ` /${item.unit}` : ""}
+              {item.taxRate === 0 && order.taxMode !== "NONE" ? ` (${item.taxName})` : ""}
+            </span>
+            <span className="shrink-0">{money(item.lineTotal, order.currency)}</span>
+          </div>
+          {item.contents.map((c, j) => (
+            <div key={j} style={{ paddingLeft: `${(c.depth + 1) * 8}px` }}>
+              · {qty(c.quantity, c.unit)} {c.name}
+              {c.nameKm && <span lang="km"> ({c.nameKm})</span>}
+            </div>
+          ))}
+          {item.priceOverridden && <div>  {t("Price changed (was {price})", { price: money(item.listPrice, order.currency) })}</div>}
+          {item.promoDiscount > 0 && (
+            <div className="flex justify-between gap-2">
+              <span className="min-w-0">  {item.promotionName}</span>
+              <span>-{money(item.promoDiscount, order.currency)}</span>
+            </div>
+          )}
+          {item.itemDiscount > 0 && (
+            <div className="flex justify-between gap-2">
+              <span className="min-w-0">  {t("Discount")}{item.itemDiscountType === "PERCENT" ? ` ${item.itemDiscountValue}%` : ""}</span>
+              <span>-{money(item.itemDiscount, order.currency)}</span>
+            </div>
+          )}
+          {item.staffName && <div>  {t("By {name}", { name: item.staffName })}</div>}
+        </div>
+      ))}
+      <hr className="my-2 border-dashed border-black" />
+      <Row label={exclusive ? t("Subtotal (excl. {vat})", { vat }) : t("Subtotal")} value={money(order.subtotal, order.currency)} />
+      {order.promoDiscount > 0 && <Row label={t("Promotions")} value={`-${money(order.promoDiscount, order.currency)}`} />}
+      {order.itemDiscount > 0 && <Row label={t("Item discounts")} value={`-${money(order.itemDiscount, order.currency)}`} />}
+      {order.promotions
+        .filter((p) => p.kind === "ORDER_DISCOUNT")
+        .map((p) => (
+          <Row key={p.promotionId} label={p.code ? `${p.name} (${p.code})` : p.name} value={`-${money(p.amount, order.currency)}`} />
+        ))}
+      {order.discountAmount > 0 && (
+        <Row
+          label={`${order.itemDiscount > 0 ? t("Order discount") : t("Discount")}${order.discountType === "PERCENT" ? ` ${order.discountValue}%` : ""}`}
+          value={`-${money(order.discountAmount, order.currency)}`}
+        />
+      )}
+      {order.pointsDiscount > 0 && (
+        <Row label={t("{n} points", { n: order.pointsRedeemed.toLocaleString() })} value={`-${money(order.pointsDiscount, order.currency)}`} />
+      )}
+      {exclusive && order.taxAmount > 0 && <Row label={t("Taxable amount")} value={money(order.taxableAmount, order.currency)} />}
+      {order.taxes
+        .filter((x) => !x.included && x.tax > 0)
+        .map((x) => (
+          <Row key={`${x.name}-added`} label={taxLabel(x)} value={money(x.tax, order.currency)} />
+        ))}
+      <div className="mt-1 flex justify-between gap-2 text-[1.17em] font-bold">
+        <span>{t("TOTAL")}</span>
+        <span>{money(order.total, order.currency)}</span>
+      </div>
+      {/* The total in the other currencies, at the rates the order was sold at. */}
+      {order.rates
+        .filter((r) => r.currency !== order.currency)
+        .map((r) => {
+          const c = find(r.currency);
+          return c ? <Row key={r.currency} label={`@ ${r.rate}`} value={amountIn(cashIn(order.total, c, r.rate), c)} /> : null;
+        })}
+      {order.taxIncluded > 0 && <Row label={t("Includes {vat}", { vat })} value={money(order.taxIncluded, order.currency)} />}
+      {order.returns.length > 0 && (
+        <>
+          {order.returns.map((r) => (
+            <Row key={r.id} label={t("Refund {number}", { number: r.returnNumber })} value={`-${money(r.total, order.currency)}`} />
+          ))}
+          <Row label={t("Net paid")} value={money(order.total - order.refundedTotal, order.currency)} />
+        </>
+      )}
+      {order.taxMode !== "NONE" && order.taxes.some((x) => x.rate > 0) && (
+        <>
+          <div className="mt-2 text-[0.92em] font-bold">{t("Tax summary")}</div>
+          {order.taxes
+            .filter((x) => x.rate > 0)
+            .map((x) => (
+              <div key={`${x.name}-${x.included}`} className="flex justify-between gap-2 text-[0.92em]">
+                <span>
+                  {x.included
+                    ? t("{tax} incl. on {base}", { tax: taxLabel(x), base: money(x.base, order.currency) })
+                    : t("{tax} added on {base}", { tax: taxLabel(x), base: money(x.base, order.currency) })}
+                </span>
+                <span>{money(x.tax, order.currency)}</span>
+              </div>
+            ))}
+        </>
+      )}
+      {paid && (
+        <>
+          <hr className="my-2 border-dashed border-black" />
+          {paid.method === "KHQR" ? (
+            <Row label={t("Paid by KHQR")} value={show(paid.currencyAmount ?? paid.amount, paid.currency ?? order.currency)} />
+          ) : (
+            paid.tenders.map((x) => <Row key={x.currency} label={t("Cash {currency}", { currency: x.currency })} value={show(x.amount, x.currency)} />)
+          )}
+          {paid.changeAmount != null && paid.changeAmount > 0 && (
+            <Row label={t("Change")} value={show(paid.changeAmount, paid.changeCurrency)} />
+          )}
+        </>
+      )}
+      <hr className="my-2 border-dashed border-black" />
+      {order.customerPoints != null && (order.pointsEarned > 0 || order.pointsRedeemed > 0) && (
+        <>
+          {order.customerTier && <Row label={t("Member tier")} value={t(tierLabel(order.customerTier))} />}
+          {order.pointsEarned > 0 && <Row label={t("Points earned")} value={`+${order.pointsEarned.toLocaleString()}`} />}
+          <Row label={t("Points balance")} value={order.customerPoints.toLocaleString()} />
+          <hr className="my-2 border-dashed border-black" />
+        </>
+      )}
+      {store.receiptFooter && <div className="text-center whitespace-pre-line">{store.receiptFooter}</div>}
+    </ReceiptPaper>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-2">
+      <span className="min-w-0">{label}</span>
+      <span className="shrink-0">{value}</span>
+    </div>
+  );
+}

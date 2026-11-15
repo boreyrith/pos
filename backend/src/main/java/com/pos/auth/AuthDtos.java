@@ -22,7 +22,8 @@ public final class AuthDtos {
     }
 
     /** {@code remember}: stay signed in after the browser closes (default yes). */
-    public record LoginRequest(@NotBlank String username, @NotBlank String password, Boolean remember) {
+    /** {@code platform}: where this sign-in is (administration, the till, the mobile app); none means the mobile app. */
+    public record LoginRequest(@NotBlank String username, @NotBlank String password, Boolean remember, SessionPlatform platform) {
     }
 
     /** A user's role, for display and for picking one. */

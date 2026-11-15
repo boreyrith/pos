@@ -30,9 +30,10 @@ spring:
     locations: classpath:db/migration
   servlet:
     multipart:
-      # Catalog images are up to 2 MB (checked in the app); leave room for the form overhead.
-      max-file-size: 3MB
-      max-request-size: 3MB
+      # Each upload checks its own size (catalog images 2 MB, the logo 512 KB); the largest is the mobile
+      # app's APK (100 MB, MobileAppService), whose address alone the proxies let through at that size.
+      max-file-size: 101MB
+      max-request-size: 101MB
 
 server:
   port: ${PORT:8081}

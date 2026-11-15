@@ -7,6 +7,9 @@ name: pos-next
 services:
   mysql:
     image: mysql:8.4
+    # Packets for the mobile app's APK (up to 100 MB, the largest file kept in the database), which the
+    # MySQL driver sends escaped, about twice its size.
+    command: ["--max-allowed-packet=256M"]
     environment:
       MYSQL_DATABASE: pos_next
       MYSQL_USER: pos
@@ -40,15 +43,95 @@ services:
     ports:
       - "8081:8081"
 
-  frontend:
+  # The web apps, as on a real server: http://localhost:3000 routes /api to the backend, /ctl, /cas,
+  # /buy and /app to their apps and the rest to the portal.
+  frontend-ctl:
     profiles: [app]
-    build: ./frontend
-    environment:
-      API_URL: http://backend:8081
+    build:
+      context: .
+      dockerfile: web.Dockerfile
+      args:
+        APP: frontend-ctl
     depends_on:
       - backend
+  frontend-cas:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: web.Dockerfile
+      args:
+        APP: frontend-cas
+    depends_on:
+      - backend
+  frontend-buy:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: web.Dockerfile
+      args:
+        APP: frontend-buy
+    depends_on:
+      - backend
+  frontend-app:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: web.Dockerfile
+      args:
+        APP: frontend-app
+    depends_on:
+      - backend
+  frontend-nav:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: web.Dockerfile
+      args:
+        APP: frontend-nav
+    depends_on:
+      - backend
+  web:
+    profiles: [app]
+    image: caddy:2.10
+    configs:
+      - source: web-routes
+        target: /etc/caddy/Caddyfile
+    depends_on:
+      - frontend-ctl
+      - frontend-cas
+      - frontend-buy
+      - frontend-app
+      - frontend-nav
     ports:
       - "3000:3000"
+
+configs:
+  web-routes:
+    content: |
+      :3000 {
+        handle /api/* {
+          reverse_proxy backend:8081
+        }
+        @cas path /cas /cas/*
+        handle @cas {
+          reverse_proxy frontend-cas:3000
+        }
+        @ctl path /ctl /ctl/*
+        handle @ctl {
+          reverse_proxy frontend-ctl:3000
+        }
+        @buy path /buy /buy/*
+        handle @buy {
+          reverse_proxy frontend-buy:3000
+        }
+        @app path /app /app/*
+        handle @app {
+          reverse_proxy frontend-app:3000
+        }
+        handle {
+          reverse_proxy frontend-nav:3000
+        }
+      }
 
 volumes:
   mysql-data:

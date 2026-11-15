@@ -104,5 +104,15 @@ else
   echo "All good. Build now (the shop keeps running), then switch over at closing time:"
 fi
 echo "  git pull && $dc build      # any time; the old version keeps serving"
-echo "  ./backup-now.sh && $dc up -d      # at closing: about a minute without sales"
+# --remove-orphans: containers of services that are gone (e.g. the single "frontend" before the split).
+echo "  ./backup-now.sh && $dc up -d --remove-orphans      # at closing: about a minute without sales"
+# Behind nginx/Apache, the site config must route /api and /cas too (since the web app was split).
+if grep -q '^COMPOSE_FILE=' .env 2>/dev/null && ! grep -q '^NAV_PORT=' .env; then
+  echo
+  echo "[NOTE] The web app is now five apps on one site: the portal at /, the shop at /buy, the mobile app"
+  echo "       page at /app, the till at /cas and administration at /ctl (here on ports 3004, 3002, 3003, 3001"
+  echo "       and 3000 unless NAV_PORT, BUY_PORT, APP_PORT, CAS_PORT in .env say otherwise). After up -d,"
+  echo "       regenerate and reload the site config so it routes them: ./proxy-config.sh nginx (or apache),"
+  echo "       as in DEPLOY.md > Updating to the separate web apps."
+fi
 [ "$failed" -eq 0 ]

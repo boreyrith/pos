@@ -1,18 +1,23 @@
 # Deploying the POS
 
-One server runs everything in Docker: the database, the API, the web app, Caddy for HTTPS, and a backup job. Only ports 80 and 443 are opened; the tills, tablets and phones open the site in a browser.
+One server runs everything in Docker: the database, the API, the five web apps, Caddy for HTTPS, and a backup job. Only ports 80 and 443 are opened; the tills, tablets and phones open the site in a browser.
 
 ```
-browser ──HTTPS──▶ caddy :443 ─ SITE_ADDRESS ─▶ frontend :3000 ──/api──▶ backend :8081 ──▶ mysql :3306
-other programs ──▶ caddy :443 ─ API_ADDRESS ──────────────────────────▶ backend :8081
-                                                               backup ──────▶ mysql (daily dump to deploy/backups)
+browser ──HTTPS──▶ caddy :443 ─ SITE_ADDRESS ─┬─ /api ──▶ backend :8081 ──▶ mysql :3306
+                                              ├─ /ctl ──▶ frontend-ctl :3000   (administration)
+                                              ├─ /cas ──▶ frontend-cas :3000   (the till: Sell, Sales, Online orders)
+                                              ├─ /buy ──▶ frontend-buy :3000   (the online shop)
+                                              ├─ /app ──▶ frontend-app :3000   (the mobile app's download page)
+                                              └─ rest ──▶ frontend-nav :3000   (the portal, at /)
+other programs ──▶ caddy :443 ─ API_ADDRESS ──────────▶ backend :8081
+                                     backup ──────────▶ mysql (daily dump to deploy/backups)
 ```
 
-The web app always reaches the API through its own `/api`, so sign-in stays on one site. `API_ADDRESS` is optional: it publishes the same API on its own address for integrations or a mobile app (paths start with `/api`, e.g. `https://api.pos.myshop.com/api/actuator/health`).
+The web apps are on one site: `https://<SITE_ADDRESS>/` is the portal, `/buy` the online shop, `/app` the mobile app's download page, `/cas` the till and `/ctl` administration (old addresses such as `/pos` or `/cart` redirect). The apps reach the API at `/api` on the same site; each signs in separately (its own session and cookie), as does the mobile app. `API_ADDRESS` is optional: it publishes the same API on its own address for integrations or the mobile app (paths start with `/api`, e.g. `https://api.pos.myshop.com/api/actuator/health`).
 
 ## What you need
 
-- A Linux server (or a shop PC) with Docker Engine 24+ and the Compose plugin. 2 CPU, 4 GB RAM and 20 GB disk is plenty for a few branches.
+- A Linux server (or a shop PC) with Docker Engine 24+ and the Compose plugin. 2 CPU, 4 GB RAM and 20 GB disk is plenty for a few branches. Each service has a memory ceiling (below) so one that runs away can't stop the others; together they fit in 4 GB.
   Install Docker with `curl -fsSL https://get.docker.com | sh`, **not** the Ubuntu snap (`snap install docker`): the snap can't read folders outside your home directory, and fails with `open /var/lib/snapd/void/docker-compose.prod.yml: no such file or directory`. If you have it, `snap remove --purge docker` first; `which docker` should then show `/usr/bin/docker`.
 - An address for it:
   - **On the internet:** a domain such as `pos.myshop.com` pointing at the server, with ports 80 and 443 reachable. Caddy gets a free Let's Encrypt certificate. For a separate API address, point that name (e.g. `api.pos.myshop.com`) at the same server too.
@@ -64,17 +69,21 @@ Install `pos-root.crt` as a trusted root on each device: Windows, double-click >
 
 ## Behind an existing nginx or Apache
 
-If the server already runs nginx or Apache on ports 80/443 (other sites), the POS runs without Caddy: the web app and API listen on this machine only (`127.0.0.1:3000` and `127.0.0.1:8081`), and your web server proxies the domains to them and handles HTTPS with certbot.
+If the server already runs nginx or Apache on ports 80/443 (other sites), the POS runs without Caddy: the web apps and API listen on this machine only (administration `127.0.0.1:3000`, the till `127.0.0.1:3001`, the shop `127.0.0.1:3002`, the app page `127.0.0.1:3003`, the portal `127.0.0.1:3004`, the API `127.0.0.1:8081`), and your web server proxies the domains and paths to them and handles HTTPS with certbot.
 
 `init-env.sh` asks about this and sets it up. For an existing `.env`, add these lines to it:
 
 ```
 COMPOSE_FILE=docker-compose.prod.yml:docker-compose.behind-proxy.yml
 WEB_PORT=3000
+CAS_PORT=3001
+BUY_PORT=3002
+APP_PORT=3003
+NAV_PORT=3004
 API_PORT=8081
 ```
 
-`COMPOSE_FILE` makes plain `docker compose ...` use both files, so in this mode **leave out `-f docker-compose.prod.yml`** from the commands in this guide. If 3000 or 8081 is already taken on the server (`ss -ltnp | grep -E ':3000|:8081'`), pick free ports.
+`COMPOSE_FILE` makes plain `docker compose ...` use both files, so in this mode **leave out `-f docker-compose.prod.yml`** from the commands in this guide. If 3000 to 3004 or 8081 is already taken on the server (`ss -ltnp | grep -E ':300[0-4]|:8081'`), pick free ports.
 
 ### Example: munita.virtual-assistant.space
 
@@ -87,12 +96,16 @@ Web app on `https://munita.virtual-assistant.space`, API on `https://api-munita.
    API_ADDRESS=api-munita.virtual-assistant.space
    COMPOSE_FILE=docker-compose.prod.yml:docker-compose.behind-proxy.yml
    WEB_PORT=3000
+   CAS_PORT=3001
+   BUY_PORT=3002
+   APP_PORT=3003
+   NAV_PORT=3004
    API_PORT=8081
    ```
 3. **Start the POS:**
    ```bash
    docker compose up -d --build
-   docker compose ps          # backend and frontend "healthy"; there is no caddy
+   docker compose ps          # backend and the five frontend-* "healthy"; there is no caddy
    curl -s http://127.0.0.1:8081/api/actuator/health
    ```
 4. **Web server site**, generated from `.env`:
@@ -113,7 +126,7 @@ Web app on `https://munita.virtual-assistant.space`, API on `https://api-munita.
    certbot --nginx -d munita.virtual-assistant.space -d api-munita.virtual-assistant.space
    ```
    (`--apache` for Apache. Install certbot with `apt install certbot python3-certbot-nginx`, or `python3-certbot-apache`.)
-6. **Check:** `https://munita.virtual-assistant.space` shows the sign-in page; `https://api-munita.virtual-assistant.space` answers `{"status":"UP"...}`.
+6. **Check:** `https://munita.virtual-assistant.space` opens the portal, `/buy` the shop, `/cas` the till's sign-in, `https://munita.virtual-assistant.space/api/actuator/health` and `https://api-munita.virtual-assistant.space` answer `{"status":"UP"...}`.
 
 The web app's sign-in uses a secure cookie, so it works only over HTTPS: sign in after step 5.
 
@@ -125,7 +138,7 @@ The web app's sign-in uses a secure cookie, so it works only over HTTPS: sign in
 | `API_ADDRESS` | Optional separate address for the API, e.g. `api.pos.myshop.com`. Empty: the API is only reached through the web app. |
 | `TLS` | Your email for Let's Encrypt, or `internal`. |
 | `HTTP_PORT`, `HTTPS_PORT` | Ports Caddy publishes, default 80 and 443 (not used behind nginx/Apache). |
-| `COMPOSE_FILE`, `WEB_PORT`, `API_PORT` | Only behind your own nginx/Apache; see that section. |
+| `COMPOSE_FILE`, `WEB_PORT`, `CAS_PORT`, `BUY_PORT`, `APP_PORT`, `NAV_PORT`, `API_PORT` | Only behind your own nginx/Apache; see that section. |
 | `DB_PASSWORD`, `DB_ROOT_PASSWORD` | Database passwords. Only used inside Docker. Don't change after the first start (the database keeps the old one). |
 | `JWT_SECRET` | Signs sign-in tokens. Changing it signs everyone out. |
 | `SECRETS_KEY` | Encrypts the Bakong token stored in the app. If lost, enter the token again. |
@@ -133,6 +146,7 @@ The web app's sign-in uses a secure cookie, so it works only over HTTPS: sign in
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | First admin, created only when there are no users. Ignored afterwards; you can delete the password line once you've signed in. |
 | `KHQR_MODE`, `BAKONG_*` | Defaults until saved in Settings > Taxes & payments. |
 | `BACKUP_EVERY_HOURS`, `BACKUP_KEEP_DAYS` | Backup schedule, default every 24 hours, kept 14 days. |
+| `MYSQL_MEMORY`, `BACKEND_MEMORY`, `WEB_MEMORY`, `CADDY_MEMORY`, `BACKUP_MEMORY` | Memory ceilings: the database 1g, the API 1536m (Java takes up to 75% for its heap; a 100 MB APK upload needs about this much), each web app 384m, Caddy 256m, each backup job 512m. A service that reaches its ceiling is restarted. Raise them on a bigger server. |
 | `METRICS_TOKEN`, `LOGGING_STRUCTURED_FORMAT_CONSOLE` | Prometheus metrics and JSON logs (see Monitoring). Metrics are off without a token. |
 | `COMPOSE_PROFILES=offsite`, `BACKUP_REMOTE`, `BACKUP_REMOTE_KEEP_DAYS` | Copy backups off the server (see Backups); copies kept 90 days. |
 
@@ -156,7 +170,7 @@ To go live afterwards, start from an empty database: restore a backup taken befo
 
 ## Backups
 
-The `backup` service dumps the database when it starts and then every `BACKUP_EVERY_HOURS`, into `deploy/backups/pos_next-<date>.sql.gz`, and deletes dumps older than `BACKUP_KEEP_DAYS`. Product pictures and the logo are in the database, so one file holds everything.
+The `backup` service dumps the database when it starts and then every `BACKUP_EVERY_HOURS`, into `deploy/backups/pos_next-<date>.sql.gz`, and deletes dumps older than `BACKUP_KEEP_DAYS`. Product pictures and the logo are in the database, so that file holds everything except the mobile app's install file (APK, up to 100 MB, Settings > Mobile app): that is the same in every backup until a new one is uploaded, so it is kept once per version, as `deploy/backups/mobile-app-<checksum>.sql.gz`, as long as a dump may need it. Keep both kinds of file together (off-site copies do).
 
 **Copy the backups off the server** (below): a disk failure takes the backups with it.
 
@@ -173,7 +187,7 @@ See what the job has done: `docker compose -f docker-compose.prod.yml logs backu
 The optional `backup-offsite` service copies every finished dump in `deploy/backups/` to another
 place with [rclone](https://rclone.org): a NAS or another machine (SFTP, SMB), or cloud storage
 (Google Drive, S3, Backblaze B2, Cloudflare R2 and others). It checks every hour and removes copies
-older than 90 days there. The dumps contain customers' names and phone numbers: use storage only
+older than 90 days there (a mobile app APK file only once it is also gone from the server, since older dumps may need it). The dumps contain customers' names and phone numbers: use storage only
 the owner can open, and ideally an rclone `crypt` remote, which encrypts the files before they leave.
 
 1. Set up the remote once (answers are saved in `deploy/rclone/rclone.conf`, which is not in git;
@@ -209,7 +223,7 @@ the owner can open, and ideally an rclone `crypt` remote, which encrypts the fil
 ./restore.sh backups/pos_next-20261024-020000.sql.gz
 ```
 
-It asks you to type `RESTORE`, stops the app, replaces the whole database with the backup, and starts the app again. Anything recorded after that backup is lost.
+It asks you to type `RESTORE`, stops the apps, replaces the whole database with the backup, loads the mobile app's APK that backup names (`mobile-app-<checksum>.sql.gz` in the same folder; if it's missing it says so, and you upload the APK again), and starts the apps again. Anything recorded after that backup is lost.
 
 On a new server: clone the repo, put your saved `.env` in `deploy/`, `docker compose -f docker-compose.prod.yml up -d --build`, then run `restore.sh` with your latest backup.
 
@@ -226,12 +240,14 @@ git pull
 docker compose -f docker-compose.prod.yml build     # any time: the old version keeps serving
 # at closing time:
 ./backup-now.sh
-docker compose -f docker-compose.prod.yml up -d     # restarts on the new version, applies database changes
+docker compose -f docker-compose.prod.yml up -d --remove-orphans     # restarts on the new version, applies database changes
 ```
 
+`--remove-orphans` removes containers of services that no longer exist, such as the single `frontend` from before the web app was split (below).
+
 **Behind nginx or Apache** (`COMPOSE_FILE` in `.env`): leave out `-f docker-compose.prod.yml`, i.e.
-`docker compose build` and `docker compose up -d`. With `-f`, Docker uses only the main file: the web
-app and API lose their local ports (the site answers 502) and a Caddy container appears that must not
+`docker compose build` and `docker compose up -d --remove-orphans`. With `-f`, Docker uses only the main file: the web
+apps and API lose their local ports (the site answers 502) and a Caddy container appears that must not
 run there. `check-server.sh` prints the right commands for this server.
 
 `check-server.sh` changes nothing. `[FAIL]` needs fixing first (no Docker, too little disk, GitHub
@@ -250,13 +266,34 @@ that changes `proxy-config.sh`, and reload the web server: `./proxy-config.sh ng
 Configs made before November 2026 let a client choose the address the sign-in limit counts against
 (Apache) and lack `X-Frame-Options`; configs made before 10 November 2026 lack `Permissions-Policy`.
 
+### Updating to the separate web apps
+
+The web app became five apps on the same site: the portal at `/`, the online shop at `/buy`, the mobile
+app page at `/app`, the till at `/cas` and administration at `/ctl`, with `/api` going straight to the
+backend. MySQL now starts with a larger packet size (for the mobile app's APK), so `up -d` restarts it once. Old addresses (`/pos`, `/catalog`, `/login`...) redirect to their
+new place, so bookmarks keep working. Updating to it, at closing time:
+
+1. Build and switch over as above, with `up -d --remove-orphans` (the old `frontend` container goes).
+2. **Behind nginx or Apache only:** the site config must now route `/api` and `/cas`. Regenerate it and
+   reload: `./proxy-config.sh nginx > /etc/nginx/sites-available/pos && nginx -t && systemctl reload nginx`
+   (`apache` and `pos.conf` for Apache). If you used certbot, run `certbot --nginx -d <your addresses>`
+   again so it adds HTTPS back to the new config. The new apps listen on `CAS_PORT`, `BUY_PORT`,
+   `APP_PORT` and `NAV_PORT` (3001 to 3004 if not set). The config also lets the mobile app's APK (up to
+   100 MB) through on its upload address only.
+   With Caddy, nothing to do: the Caddyfile in the repository already routes them.
+3. Check: `https://<SITE_ADDRESS>/` opens the portal, `/buy` the online shop (closed until an admin opens
+   it under Settings › Online shop), `/app` the mobile app page (an admin uploads the APK under
+   Settings › Mobile app), `/cas` the till and `/ctl` administration. Staff and customers sign in
+   again once (sessions are now kept per app).
+
 ### Rolling back
 
-If an update misbehaves: `git checkout <previous commit>` and `up -d --build` again. If the update changed the database (a new `V…sql` file in `backend/src/main/resources/db/migration`), the older version won't start on the newer database: restore the backup you took before updating as well.
+If an update misbehaves: `git checkout <previous commit>` and `up -d --build --remove-orphans` again (behind
+nginx/Apache, also regenerate the site config with that commit's `proxy-config.sh`). If the update changed the database (a new `V…sql` file in `backend/src/main/resources/db/migration`), the older version won't start on the newer database: restore the backup you took before updating as well.
 
 ## Going live with KHQR
 
-KHQR starts in test mode, where a "Simulate customer payment" button confirms payments. To take real payments:
+KHQR starts in test mode, where a "Simulate customer payment" button confirms payments. On a server (the `prod` profile) the online shop can't be opened in test mode, since anyone could then mark their order paid; Settings > System and the API's start-up log warn while it lasts. To take real payments:
 
 1. Get an API token from the Bakong API portal for your account.
 2. **Settings > Taxes & payments > KHQR:** set the receiving account (`name@bank`), merchant name and city, paste the token, and **Test connection**.
@@ -280,7 +317,7 @@ Keep one copy of the repository on the server (e.g. `/opt/pos`) and always run t
 | Task | Command (in `deploy/`) |
 | --- | --- |
 | Status | `docker compose -f docker-compose.prod.yml ps` |
-| Logs | `docker compose -f docker-compose.prod.yml logs -f backend` (or `frontend`, `caddy`, `backup`) |
+| Logs | `docker compose -f docker-compose.prod.yml logs -f backend` (or `frontend-nav`, `frontend-buy`, `frontend-app`, `frontend-cas`, `frontend-ctl`, `caddy`, `backup`) |
 | Restart | `docker compose -f docker-compose.prod.yml restart` |
 | Stop / start | `docker compose -f docker-compose.prod.yml down` / `up -d` (data is kept in Docker volumes) |
 | Disk use | `docker system df`; `docker image prune` removes old images after updates |

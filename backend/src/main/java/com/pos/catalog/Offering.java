@@ -111,6 +111,14 @@ public class Offering {
     @Column(nullable = false)
     private boolean sellable = true;
 
+    /** Shown and sold in the online shop (staff switch it on per entry; never for services charged by the hour). */
+    @Column(name = "sell_online", nullable = false)
+    private boolean sellOnline;
+
+    /** Only the system adds it to sales (the online shop's Delivery): kept off the till's sell screen. */
+    @Column(name = "till_hidden", nullable = false)
+    private boolean tillHidden;
+
     @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
     private List<ServiceComponent> components = new ArrayList<>();

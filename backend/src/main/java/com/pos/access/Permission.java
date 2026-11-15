@@ -19,6 +19,7 @@ public enum Permission {
     DISCOUNT_ITEMS(Module.SALES, "Discount items", "Give a % or amount off single items at checkout, up to the role's maximum", "SALES_SELL"),
     PRICE_OVERRIDE(Module.SALES, "Override prices", "Change an item's price at checkout, with a reason (not below cost)", "SALES_SELL"),
     PRICE_BELOW_COST(Module.SALES, "Sell below cost", "Override a price below the item's cost", "PRICE_OVERRIDE"),
+    ONLINE_ORDERS(Module.SALES, "Online orders", "See orders from the online shop and mark them ready, out for delivery and done", "ORDERS_VIEW"),
 
     CUSTOMERS_VIEW(Module.CUSTOMERS, "View customers", "See customers, their details and purchase history"),
     CUSTOMERS_MANAGE(Module.CUSTOMERS, "Manage customers", "Add and edit customers (also from the sell screen)", "CUSTOMERS_VIEW"),

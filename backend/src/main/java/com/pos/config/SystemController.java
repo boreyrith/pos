@@ -95,6 +95,9 @@ public class SystemController {
                         secretsKey ? null : "Needed to save the Bakong token", !secretsKey))));
 
         groups.add(new Group("Sales", List.of(
+                new Item("KHQR payments", settings.khqr().simulated() ? "Test (simulated)" : "Live", "KHQR_MODE",
+                        settings.khqr().simulated() ? "Payments are not real: switch to live in Settings > Taxes & payments before going live" : null,
+                        settings.khqr().simulated()),
                 new Item("KHQR code valid for", human(props.khqr().expiry()), null, "Unpaid KHQR orders are cancelled after this", false),
                 new Item("Held sales expire after", human(props.holds().expiry()), "HOLD_EXPIRY", null, false),
                 new Item("Held sale lock released after", human(props.holds().lockTimeout()), "HOLD_LOCK_TIMEOUT",

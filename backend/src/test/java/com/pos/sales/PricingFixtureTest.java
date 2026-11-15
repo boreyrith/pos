@@ -21,7 +21,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Runs the shared cases in pricing-cases.json, whose expected values come from an independent
- * reference calculation. The web client's lib/pricing.test.ts runs the same file, so the cart and
+ * reference calculation. The web apps' shared/utils/pricing.test.ts runs the same file, so the cart and
  * the server are proven to charge the same amounts.
  */
 class PricingFixtureTest {

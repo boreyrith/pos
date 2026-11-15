@@ -28,11 +28,11 @@ case "$hash" in
   *) echo "Could not make the password hash; nothing was changed." >&2; exit 1 ;;
 esac
 
-docker compose stop backend frontend
+docker compose stop backend frontend-ctl frontend-cas frontend-buy frontend-app frontend-nav
 gunzip -c "$file" | docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot pos_next'
 printf "UPDATE users SET password_hash = '%s', must_change_password = 0; DELETE FROM refresh_tokens;\n" "$hash" \
   | docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot pos_next'
-docker compose start backend frontend
+docker compose start backend frontend-ctl frontend-cas frontend-buy frontend-app frontend-nav
 
 echo
 echo "Sample store loaded. All accounts use the password: $password"

@@ -365,6 +365,24 @@ public class OrderService {
         return tx.execute(s -> PaymentDto.from(settle(snapshot.getOrder().getId(), paymentId, settlement)));
     }
 
+    /** Staff: a payment of their branch only (all branches for those who see them), then as refreshPayment. */
+    public PaymentDto refreshPayment(Long paymentId, AuthUser user) {
+        requirePaymentBranch(paymentId, user);
+        return refreshPayment(paymentId);
+    }
+
+    /** Staff: as simulatePayment, for a payment of their branch only. */
+    public PaymentDto simulatePayment(Long paymentId, AuthUser user) {
+        requirePaymentBranch(paymentId, user);
+        return simulatePayment(paymentId);
+    }
+
+    private void requirePaymentBranch(Long paymentId, AuthUser user) {
+        Long branchId = tx.execute(s -> payments.findById(paymentId)
+                .orElseThrow(() -> ApiException.notFound("Payment")).getOrder().getBranch().getId());
+        branches.requireBranch(user, branchId);
+    }
+
     /** Marks a pending KHQR payment as paid without asking Bakong. Only allowed in simulated mode. */
     public PaymentDto simulatePayment(Long paymentId) {
         if (!khqr.isSimulated()) {
