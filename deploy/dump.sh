@@ -16,15 +16,24 @@ trap 'rm -f "$tmp" "$file.tmp" /backups/mobile-app-*.tmp' EXIT
 
 finished() { tail -n 1 "$1" | grep -q "Dump completed"; }
 
+# Databases from before the mobile app page (V41) have no APK table yet: then everything is dumped.
+has_apk=$(mysql $conn -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$db' AND table_name = 'mobile_app_apk'")
+
 # The database, with the APK table's definition but not its data (so a restore leaves it empty).
-mysqldump $opts --routines --ignore-table=$db.mobile_app_apk $db > "$tmp" && finished "$tmp" \
-  && mysqldump $opts --no-data $db mobile_app_apk >> "$tmp" && finished "$tmp" \
-  || { echo "$(date -u) backup FAILED" >&2; exit 1; }
+if [ "$has_apk" = 1 ]; then
+  mysqldump $opts --routines --ignore-table=$db.mobile_app_apk $db > "$tmp" && finished "$tmp" \
+    && mysqldump $opts --no-data $db mobile_app_apk >> "$tmp" && finished "$tmp" \
+    || { echo "$(date -u) backup FAILED" >&2; exit 1; }
+else
+  mysqldump $opts --routines $db > "$tmp" && finished "$tmp" \
+    || { echo "$(date -u) backup FAILED" >&2; exit 1; }
+fi
 gzip -c "$tmp" > "$file.tmp" && mv "$file.tmp" "$file"
 echo "$(date -u) backup written: $file"
 
 # The APK uploaded now, if it isn't kept yet. Its file's date is refreshed while it is the current one,
 # so it is removed only when every dump that names it has been.
+[ "$has_apk" = 1 ] || exit 0
 sha=$(mysql $conn -N -B -e "SELECT apk_sha256 FROM $db.mobile_app WHERE id = 1 AND apk_sha256 IS NOT NULL")
 if [ -n "$sha" ]; then
   apk="/backups/mobile-app-$sha.sql.gz"
