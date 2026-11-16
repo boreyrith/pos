@@ -130,6 +130,53 @@ Web app on `https://munita.virtual-assistant.space`, API on `https://api-munita.
 
 The web app's sign-in uses a secure cookie, so it works only over HTTPS: sign in after step 5.
 
+## Web apps outside Docker (small servers)
+
+On a server with 2 GB of memory or less, building and running five web app containers next to the
+database and the API runs it out of memory. There, Docker runs only the database, the API and the
+backups, and the five web apps run on the server itself with Node, as systemd services
+(`web-host.sh`). This only works **behind nginx or Apache**; the site config from `proxy-config.sh`
+stays the same (the apps listen on the same ports).
+
+Once:
+
+1. Node.js 24 on the server, and swap if there is little memory:
+
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash - && sudo apt install -y nodejs
+   sudo fallocate -l 4G /swapfile2 && sudo chmod 600 /swapfile2 && sudo mkswap /swapfile2 && sudo swapon /swapfile2
+   echo '/swapfile2 none swap sw 0 0' | sudo tee -a /etc/fstab
+   ```
+
+2. In `deploy/.env`, add the third compose file and smaller memory ceilings:
+
+   ```bash
+   COMPOSE_FILE=docker-compose.prod.yml:docker-compose.behind-proxy.yml:docker-compose.web-on-host.yml
+   MYSQL_MEMORY=512m
+   BACKEND_MEMORY=900m
+   ```
+
+   (With 900m the API may not manage the largest APK uploads; upload the APK on a quiet moment.)
+
+Each update (build first, switch over at closing time):
+
+```bash
+cd deploy
+git pull
+sudo docker compose build                 # the API only
+./web-host.sh build                       # the five web apps, one at a time (as your own user, not sudo)
+# at closing time:
+sudo ./backup-now.sh
+sudo docker compose up -d --remove-orphans
+sudo ./web-host.sh install                # the first time; afterwards builds restart the apps themselves
+./web-host.sh status                      # each app: service active, answers 200/307/308
+```
+
+`./web-host.sh build` puts each app live as soon as it is built (once the services are installed), so
+after the first time run it at closing time too, or build one app at a time: `./web-host.sh build
+frontend-cas`. A failed build leaves the running app as it was. `./web-host.sh logs frontend-ctl`
+follows an app's log; `./web-host.sh restart` restarts them. They start by themselves after a reboot.
+
 ## Settings in `.env`
 
 | Variable | Meaning |

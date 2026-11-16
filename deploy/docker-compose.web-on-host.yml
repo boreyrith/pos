@@ -1,0 +1,19 @@
+# For a small server (2 GB of memory or less) behind nginx or Apache: Docker runs only the database,
+# the API and the backups; the five web apps run on the server itself with Node (web-host.sh), which
+# needs less memory than five more containers and their builds. Used together with
+# docker-compose.prod.yml and docker-compose.behind-proxy.yml, listed in COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.prod.yml:docker-compose.behind-proxy.yml:docker-compose.web-on-host.yml
+# The web apps are then left out of "docker compose build" and "up" (their profile is never turned on),
+# and web-host.sh serves them on the same ports (WEB_PORT, CAS_PORT, BUY_PORT, APP_PORT, NAV_PORT), so
+# the site config from proxy-config.sh stays the same. See "Web apps outside Docker" in DEPLOY.md.
+services:
+  frontend-ctl:
+    profiles: ["web-in-docker"]
+  frontend-cas:
+    profiles: ["web-in-docker"]
+  frontend-buy:
+    profiles: ["web-in-docker"]
+  frontend-app:
+    profiles: ["web-in-docker"]
+  frontend-nav:
+    profiles: ["web-in-docker"]
