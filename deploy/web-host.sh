@@ -29,6 +29,13 @@ port_of() {
     *) echo "Unknown app: $1 (one of: $ALL)" >&2; exit 1 ;;
   esac
 }
+# A page each app serves (they live under their own path on the site).
+page_of() {
+  case "$1" in
+    frontend-ctl) echo /ctl/login ;; frontend-cas) echo /cas/login ;; frontend-buy) echo /buy ;;
+    frontend-app) echo /app ;; frontend-nav) echo / ;;
+  esac
+}
 apps() { if [ $# -gt 0 ]; then for a in "$@"; do port_of "$a" > /dev/null; done; echo "$@"; else echo "$ALL"; fi; }
 installed() { systemctl cat "pos-web-$1" > /dev/null 2>&1; }
 
@@ -73,6 +80,11 @@ build() {
 install() {
   [ "$(id -u)" = 0 ] || { echo "Run it with sudo: sudo ./web-host.sh install" >&2; exit 1; }
   need_node
+  ports=$(for app in $ALL; do port_of "$app"; done)
+  if [ "$(echo "$ports" | sort | uniq -d)" != "" ]; then
+    echo "Two apps have the same port in .env ($(echo $ports)): give each its own (WEB_PORT, CAS_PORT, BUY_PORT, APP_PORT, NAV_PORT)." >&2
+    exit 1
+  fi
   user=${SUDO_USER:-root}
   node=$(command -v node)
   for app in $ALL; do
@@ -107,10 +119,11 @@ status() {
   for app in $ALL; do
     port=$(port_of "$app")
     state=$(systemctl is-active "pos-web-$app" 2>/dev/null || true)
-    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$port/" || true)
-    printf '%-14s port %-5s service %-9s answers %s\n' "$app" "$port" "${state:-missing}" "$code"
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$port$(page_of "$app")" || true)
+    printf '%-14s port %-5s service %-11s %-12s answers %s\n' "$app" "$port" "${state:-missing}" "$(page_of "$app")" "$code"
   done
-  echo "(answers 200, 307 or 308 are fine: some apps redirect / to their sign-in page)"
+  echo "(each app should be 'active' and answer 200; a port shared by two apps, or used by something"
+  echo " else, leaves one 'activating': give each its own port in .env, then sudo ./web-host.sh install)"
 }
 
 case "${1:-}" in
